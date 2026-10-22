@@ -286,7 +286,7 @@ On/off and lineup results counted from our own stints and possessions (`marts/on
 New tables approved by the owner on 2026-10-22 (CLAUDE.md working agreement 8).
 Each row carries `credit_method`, `rules_version` and `rules_profile`.
 
-**Crediting (`pbpstats_hybrid`; the A/B/C question for a substitution during a possession is still open):** a
+**Crediting (`pbpstats_hybrid`, decided by the owner 2026-10-22 for a substitution during a possession):** a
 possession, with its heave and garbage flags, goes to the stint on the floor when it ends (the last of its
 stint segments), for the offense and the defense lineup; the points of a field goal go with the possession; the
 points of a free throw go to the stint on the floor at the foul (`foul_event_seq`); a counted free throw without a
@@ -331,7 +331,7 @@ did not play (0 seconds, "DNP") are left out and counted (`dnp_rows`). `has_trac
 `uncontested_field_goals_made` / `_attempted`, `defended_at_rim_field_goals_*`, `contested_shots` (+ `2pt`, `3pt`), `deflections`,
 `charges_drawn`, `screen_assists`, `screen_assist_points`, `loose_balls_recovered_total`, `box_outs`.
 
-## marts.player_rapm (prototype, waiting for the owner's approval)
+## marts.player_rapm (approved 2026-10-22; fitted per window)
 
 Ridge RAPM per player and window (`metrics/rapm.py`), **PRIMARY KEY** `(window_id, player_id)`; `window_id` is for example
 `2024-25 regular` or `2022-23 + 2023-24 + 2024-25 regular`. One observation per possession (points of the offense); features: five
@@ -340,6 +340,17 @@ offense columns, five defense columns, home court; penalty by cross-validation g
 an average player; `alpha`, `n_obs`, `home_points_per100`, and the choices that produced the row: `credit_method`
 (`end_lineup`), `exclude_end_of_period_heave`, `exclude_garbage_time`, `min_possessions_for_own_column`, `rules_version`,
 `rules_profile`. Players below the possession minimum share a replacement column and have no row. `o_se`, `d_se`, `rapm_se`: bootstrap standard errors (50 resamples of whole games, same penalty; NULL when none was run).
+
+## marts.matchup_pairs
+
+NBA.com matchup data, one row per defender and guarded player in a game (`marts/matchups.py`), 2017-18 → 2024-25, **PRIMARY KEY**
+`(game_id, defender_id, offender_id)`; every number is NBA.com's (**official**), typed from `reference.matchups` (all text there, game
+ids without their leading zeros: `21700001` becomes `0021700001`). `team_id` is the defender's team. `matchup_secs` the time he was matched
+with the offender, `partial_possessions`, `pct_defender_time` / `pct_offense_time` / `pct_both_on` (as given), `switches_on`; counts while
+matched: `player_pts` (the offender's), `team_pts`, `assists`, `potential_assists`, `turnovers`, `blocks`, `fgm`, `fga`, `fg3m`, `fg3a`,
+`help_blocks`, `help_fgm`, `help_fga`, `ftm`, `fta`, `shooting_fouls`. Blank values are NULL. Hard checks: games in `core.games`, players and
+teams known, the defender's team played the game, no duplicate keys, every value blank or a number. 1,886,689 rows, 10,076 games; 112 regular-season games
+have no matchup data (92 of them in 2019-20), listed in `docs/validation/matchups_coverage.md`; 87 rows name a player who is not in that game's box score.
 
 ## core.possessions, core.possession_stint_segments (Claude-written, owner-reviewed)
 

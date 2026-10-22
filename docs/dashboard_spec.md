@@ -65,13 +65,13 @@ Notes for layer 1:
 | Rule explorer | how much do the rules matter | the same player / lineup under `pbpstats_compat` vs `custom`, and substitution option A/B/C | the three credit methods (CLAUDE.md, open question) |
 | Tracking per game | how do the tracking numbers move | distance, touches, passes per game; contested shots, deflections, loose balls | `marts.player_game_tracking` (built 2026-10-22; "Game by game" section of `6_Tracking.py`) |
 | Own metrics from tracking | numbers that exist nowhere else | to be designed (for example touches and passes per 100 possessions; contested shots per 100 opponent possessions) | tracking boxes + our possessions |
-| Matchups | playoff series adjustments | the owner's Playoff Matchup Adjustment Tracker, joined on `game_id`, `player_id`, `team_id` | `reference.matchups` (2017-18 → 2024-25) |
+| Matchups | playoff series adjustments | the owner's Playoff Matchup Adjustment Tracker idea, joined on `game_id`, `player_id`, `team_id` | `marts.matchup_pairs` (built 2026-10-22, 2017-18 → 2024-25; page `10_Matchups.py`: who guarded a player, game by game; the Tracker's own timeline and PTS/75 views are not rebuilt) |
 
 ### Layer 3: needs layer 2 first
 
 | Page | Content | Needs |
 |---|---|---|
-| RAPM | offensive and defensive RAPM, multi-season windows, home court, low-minute bucket; lambda from grouped cross-validation (by game) | `marts.player_rapm` (prototype fitted 2026-10-22 for 2024-25 and 2022-23 → 2024-25; waiting for the owner's approval; page `11_RAPM.py`: window, minimum possessions, sort, only clear-of-zero players, offense-defense scatter, every rating with its standard error) |
+| RAPM | offensive and defensive RAPM, multi-season windows, home court, low-minute bucket; lambda from grouped cross-validation (by game) | `marts.player_rapm` (prototype fitted 2026-10-22 for 2024-25 and 2022-23 → 2024-25; approved 2026-10-22; page `11_RAPM.py`: window, minimum possessions, sort, only clear-of-zero players, offense-defense scatter, every rating with its standard error) |
 | One-number metric | an EPM-style metric: a box-score prior (from layer 1 data) combined with RAPM | RAPM + player-season box data |
 
 ## What layer 2 needs from the possession code

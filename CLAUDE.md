@@ -239,7 +239,7 @@ An offensive rebound does **not** end a possession.
 | Case | Rule | Status |
 |---|---|---|
 | End-of-period possessions | pbpstats approach: a possession that starts with ≤ `end_of_period_threshold_secs` (rules.yaml, default 2) left in the period **and scores 0 points** is excluded when computing efficiency. All possessions are **kept**; flag `is_end_of_period_heave`. Store seconds left in the period at the start so the threshold can change without rebuilding. The comparison uses the **exact** time left (owner 2026-10-21; the source has tenths from 2016-17, pbpstats uses whole seconds, so `pbpstats_compat` keeps about 500-560 more zero-point possessions per season from 2016-17 on purpose). | decided |
-| Substitution during a possession (incl. between free throws) | **Not decided (kept open on purpose, 2026-10-21): compare A/B/C after `pbpstats_compat` is validated.** The data must keep all three options computable: **(A)** whole possession credited to the lineup on court when it ends; **(B)** FT points credited to the lineup on court at the time of the foul; **(C)** Cleaning the Glass chance split. So: every event maps to the lineup on court at that moment; every free throw records its fouling event; chance boundaries are recorded. | **open** |
+| Substitution during a possession (incl. between free throws) | **Decided (owner 2026-10-22): follow pbpstats' hybrid, in both profiles.** A possession is credited to the lineup on court when it ends; free-throw points to the lineup on court at the time of the foul. It was kept open until measured: option A (whole possession, free throws included, to the lineup at the end) moves 7.1 % of all points between lineups and changes a typical player's on-off by about 1 point per 100 possessions (`docs/validation/onoff_credit_methods.md`). The data still keeps A and C computable (every event maps to the lineup on court at that moment; every free throw records its fouling event; chance boundaries are recorded). RAPM, a possession-level model, credits the whole possession to the lineup at its end (option A; owner confirmed 2026-10-22). | **decided** |
 | Offensive rebound | Does not end the possession. Each possession records its number of chances (`num_chances`). Chance boundaries (rules.yaml): **offensive rebounds only** in the first version (confirmed 2026-10-21); other boundaries only after checking Cleaning the Glass's published definition, in the `custom` profile. | decided |
 | Flagrant foul (FTs + retained ball) | **One possession**: the FT trip and the retained ball are the same possession (owner 2026-10-21, both profiles; this is what pbpstats' reference data show; the earlier "two possessions (pbpstats)" was wrong). The last flagrant FT does not end the possession and is not a new chance. | decided (2026-10-21) |
 | Other free throws with the ball retained | Same possession, like flagrant fouls (owner 2026-10-21, both profiles = pbpstats): **clear-path, transition-take, away-from-play and inbound-foul** free throws do not end the possession (pbpstats applies away-from-play and inbound with no clock condition). The kind comes from the free-throw code or the linked foul (`foul_event_seq`). | decided (2026-10-21) |
@@ -260,7 +260,7 @@ Full spec with worked examples lives in `docs/possession_rules.md`.
   credited to the lineup on court when the possession ends, free-throw points to the
   lineup on court at the time of the foul.
 - **`custom`** — my adjustments (e.g. technical free throws excluded by default); the
-  substitution question stays **open** here.
+  substitution question is decided: the pbpstats hybrid, as above (owner 2026-10-22).
 
 Once the possession code exists, run `pbpstats_compat` first and compare with
 `reference.pbpstats_possessions` game by game; the goal is equal per-team possession counts
@@ -313,9 +313,9 @@ Numbered checks (level shown where the review set it; others pending owner confi
       `events` for 2004-05 into DuckDB; validation checks 1–6.
 - [x] **Phase 2** — Shots table from shufinskiy; check 10.
 - [x] **Phase 3** — Possessions + checks 7–8 (done 2026-10-22 for all 60 season files, profile
-      `pbpstats_compat`; `custom` profile and the A/B/C substitution credit still open).
+      `pbpstats_compat`; the substitution credit is decided (pbpstats hybrid, 2026-10-22); the `custom` profile has no deviations yet).
 - [x] **Phase 4** — Stints + on/off (done 2026-10-22: `marts.player_onoff_season`, `lineup_stats`, `pair_stats`,
-      `team_efficiency_season`, approved by the owner; credit method `pbpstats_hybrid` while A/B/C stays open);
+      `team_efficiency_season`, approved by the owner; credit method `pbpstats_hybrid`, decided 2026-10-22);
       Streamlit pages Team efficiency, On/off, Lineups, with possession counts next to every rate.
 - [x] **Phase 5** — Scale to all seasons; cross-source check vs BigDataBall.
 - [ ] **Phase 6** — RAPM (Ridge; separate O/D; multi-season windows; home court;

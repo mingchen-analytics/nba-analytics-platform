@@ -98,8 +98,9 @@ columns: `docs/data_dictionary.md`.
 4. **Basketball definitions are separate from code**, written down with examples, and tested on
    real event sequences (`tests/fixtures/possessions/`).
 5. **Never bend the logic to match a reference number.** A mismatch is investigated and reported.
-6. Questions that are still open stay open on purpose: for example how to credit a possession when
-   a substitution happens between free throws (three options, all computable from the data).
+6. A choice stays open until the data shows what it costs: how to credit a possession when a substitution
+   happens between free throws was measured first (it moves 7.1 % of all points between lineups), then decided
+   to follow pbpstats.
 
 The full decision log, with the reasons, is `docs/decisions.md`.
 
@@ -147,8 +148,8 @@ Cross-checks that came out of it:
   boxes trace all of it to three games with 60-338 mph; without them those players run at 3.9-4.8 mph. Flagged, not deleted
   (`docs/validation/tracking_quality.md`).
 - How a possession is credited when a substitution happens between a foul and its free throws moves 7.1 % of all points between
-  lineups and changes a typical player's on-off by about 1 point per 100 possessions (`docs/validation/onoff_credit_methods.md`); the
-  choice is documented as open.
+  lineups and changes a typical player's on-off by about 1 point per 100 possessions (`docs/validation/onoff_credit_methods.md`); I
+  kept the reference's method (free throws to the lineup at the foul).
 - Against BigDataBall (7 seasons): final scores agree in all but 2 of 8,883 games, and where the
   lineups disagree, box-score minutes and official substitutions side with the primary source in
   641 of 647 decidable cases.

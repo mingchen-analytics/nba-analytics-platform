@@ -1097,3 +1097,31 @@ Green, Wagner. No standard errors in this prototype (a bootstrap by game is the 
   (2024-25; offense 0.86, defense 0.86) and 1.28 (three seasons; more marginal players qualify in the longer window, so the medians are over
   different sets). 73 of 432 players (2024-25) and 131 of 581 (three seasons) are more than two standard errors from zero; the top 10 and the bottom
   10 are all clear of zero in both windows. The standard errors are sampling noise only; ridge's shrinkage bias is not in them.
+
+## 2026-10-22 — Matchup mart and page (branch `matchups-mart`; new table waits for the owner's approval)
+
+Roadmap Phase 7 (integrate the Playoff Matchup Adjustment Tracker by shared IDs). `marts.matchup_pairs` types NBA.com's matchup data
+(`reference.matchups`: all columns text, `game_id` without leading zeros, e.g. `21700001`) and joins it to our games, players and teams.
+- Integrity (all hard checks pass): every game id resolves once zero-padded; no unknown player or team; the defender's team is one of the
+  game's two teams in all 1,886,689 rows; no duplicate keys; every value blank or numeric. 87 rows name a player who is not in that game's box score
+  (counted, kept). Coverage: all playoff games from 2017-18 to 2024-25; 112 regular-season games have no matchup data (92 in 2019-20), in
+  `docs/validation/matchups_coverage.md`.
+- Sanity: a defender's matched seconds are about 0.40 of his time on our stints (5th-95th percentile 0.34-0.46); the data covers only the time his
+  team defends and not every second is assigned, so below 0.5 is expected.
+- Page `10_Matchups.py`: choose season, the offensive team and the defending team (the series), then a player: who guarded him (matched time,
+  share, partial possessions, points, shooting, switches) and, game by game, the share of his guarded time per defender. This is the Tracker's core
+  idea (a series total hides assignment changes); its other views (PTS/75, the timeline) are not rebuilt here. Matched time and its share are the primary signal,
+  as in the Tracker; counts while matched are small-sample.
+- Nothing from `reference.matchups` is mixed into our possession or lineup numbers.
+
+## 2026-10-22 — Owner decisions after the overnight work (A, B, C, D)
+
+- **A. New tables approved and merged**: `marts.player_rapm` (with the RAPM page), `marts.matchup_pairs` (with the Matchups page), together with
+  the earlier approved on/off, lineup, pair, team efficiency and single-game tracking tables.
+- **B. RAPM defaults confirmed**: the whole possession credited to the lineup at its end (option A), end-of-period heaves and garbage time excluded,
+  500-possession threshold for an own column, 5 folds, 50 bootstrap resamples. The **[待確認]** marks of the RAPM entries above are resolved.
+- **C. Substitution during a possession: follow pbpstats' hybrid, in both profiles** (possession to the lineup on the floor when it ends,
+  free-throw points to the lineup on the floor at the foul). The A/B/C question is closed; the data still keeps A and C computable.
+  `rules.yaml` `substitution_credit` is now `pbpstats_hybrid` for all profiles (it was `null` outside `pbpstats_compat`); possession rows do not
+  depend on it, so `rules_version` stays `2026-10-21.6` and no possession was rebuilt. CLAUDE.md and the possession-rule text are updated.
+- **D. 2017-18: write `corrections` for the 15 "missing rebound" cases first**, each confirmed against the official play-by-play (next entry).

@@ -884,3 +884,13 @@
 
 - 新頁面 `11_RAPM.py`：選視窗（單季／三季）、最少回合數、排序、只看「離 0 超過 2 個標準誤」的球員；表格每個評分都附 ± 標準誤；進攻 vs 防守散佈圖。頁首明講這是模型值（不是計數），並提醒單季重複性約 0.4、三季約 0.6。
 - 資料表 `marts.player_rapm` 與 `marts.matchup_pairs` 都是新增資料表，等你核准才合併。
+
+## Matchup 資料表與頁面（分支 matchups-mart，2026-10-22 05:44）
+
+- 新增 `marts.matchup_pairs`（1,886,689 列、10,076 場）：把 NBA.com matchup 資料（原本全是文字、game_id 少前導零）整理成型別正確、可以和我們的比賽／球員／球隊 ID 連接的表；硬檢查全過。有 112 場常規賽沒有 matchup 資料（92 場在 2019-20），列在 `docs/validation/matchups_coverage.md`。
+- 新頁面 `10_Matchups.py`：選賽季、進攻隊、防守隊（系列賽），再選球員，看誰守了他，以及逐場的「被守時間比例」，也就是你 Tracker 的核心想法。
+- 新增資料表，**等你核准**才合併。
+
+## 你的決定（A、B、C、D）與合併（2026-10-22 12:36）
+
+- A 核准：RAPM 與 matchup 兩個分支已合併進 main（含 10_Matchups、11_RAPM 兩個頁面）。B：RAPM 預設值全部維持。C：換人歸屬沿用 pbpstats 混合法（兩個設定檔都是）；`rules.yaml`、CLAUDE.md、README、頁面說明、測試都已同步，這題結案。D：先做 2017-18 缺籃板的 15 筆 corrections（見下一段）。

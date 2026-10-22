@@ -5,8 +5,8 @@ comes from the NBA.com box score. One row per (season, type, team, player) in
 marts.player_onoff_season, per (season, type, team, lineup) in marts.lineup_stats and per
 (season, type, team, two players) in marts.pair_stats.
 
-Crediting (CLAUDE.md "Substitution during a possession": the A/B/C question is still **open**). The
-marts use the `pbpstats_compat` hybrid, recorded in `credit_method` = 'pbpstats_hybrid':
+Crediting (CLAUDE.md "Substitution during a possession", decided by the owner 2026-10-22): the
+marts use the pbpstats hybrid, recorded in `credit_method` = 'pbpstats_hybrid':
 - a possession (and its heave / garbage flags) is credited to the stint that is on the floor
   when it ends (the last of its stint segments), for the offense lineup and the defense lineup;
 - the points of a field goal are credited with the possession; the points of a free throw go to the

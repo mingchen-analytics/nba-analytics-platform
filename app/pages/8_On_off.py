@@ -63,8 +63,8 @@ def main() -> None:
                  "FROM marts.player_onoff_season").iloc[0]
     st.caption(f"Team points per 100 possessions with the player on and off the floor, **counted from our play-by-play** "
                f"(rules {meta['v']}, profile `{meta['p']}`, credit method `{meta['m']}`: a possession goes to the lineup on the floor "
-               "when it ends, free-throw points to the lineup at the foul). How to credit a substitution during a possession is "
-               "still an open question; the alternative moves about 7 % of points (`docs/validation/onoff_credit_methods.md`).")
+               "when it ends, free-throw points to the lineup at the foul: pbpstats' method). Crediting every point to the lineup at the end of "
+               "the possession instead would move about 7 % of points (`docs/validation/onoff_credit_methods.md`).")
 
     c1, c2, c3 = st.columns(3)
     season_type = c1.radio("Season type", ["regular", "playoffs"], horizontal=True)

@@ -43,7 +43,7 @@ not end it by itself: the rebound decides. An offensive rebound does not end a p
 | Case | Rule (short) | Status | 2004-05 count |
 |---|---|---|---|
 | End-of-period possessions | start ≤ `end_of_period_threshold_secs` (2) left and 0 pts → excluded from efficiency, kept + flagged | decided | 1455 of 227,649 excluded at 2 s (ramirobentes) |
-| Substitution during a possession (incl. between FTs) | options A / B / C must stay computable | **open** | 7,212 of 28,315 multi-FT trips (25.47%) |
+| Substitution during a possession (incl. between FTs) | pbpstats hybrid: possession to the lineup at its end, free-throw points to the lineup at the foul; A and C stay computable | decided (owner 2026-10-22) | 7,212 of 28,315 multi-FT trips (25.47%) |
 | Offensive rebound | does not end possession; record `num_chances` | decided | 37,353 offensive rebounds |
 | Flagrant foul | FT trip + retained ball = **1 possession** (owner 2026-10-21; earlier draft said 2) | decided | 86 flagrant fouls, 170 flagrant FTs |
 | Technical free throws | no start/end; team points; `is_technical_ft`; excluded from lineup efficiency / RAPM | decided | 1,814 technical FTs (1,464 made) |
@@ -528,8 +528,8 @@ Largest differences:
   exclusion.
 - **Reference only, not a decision:** pbpstats' source code uses a hybrid for substitutions
   during a possession — the possession is credited to the lineup on court when it ends, free-throw
-  points to the lineup on court at the time of the foul. The substitution rule (case 2) stays
-  **open** in the owner's `custom` profile.
+  points to the lineup on court at the time of the foul. The owner decided on 2026-10-22 to follow
+  it in both profiles.
 - **Scoring by the team not on offense:** `docs/validation/scoring_attribution.md`. With the
   reference segmentation, almost all such events are and-1 free throws (the reference ends the
   possession on the made shot) or technical FTs; a handful are FTs at a period boundary.

@@ -443,7 +443,7 @@ not end it by itself: the rebound decides. An offensive rebound does not end a p
 | Case | Rule (short) | Status | {label} count |
 |---|---|---|---|
 | End-of-period possessions | start ≤ `end_of_period_threshold_secs` ({t0}) left and 0 pts → excluded from efficiency, kept + flagged | decided | {int(f['eop'].iloc[0]['rb_excluded_(0_pts)']) if not f['eop'].empty else 'n/a'} of {f['n_rb_poss']:,} excluded at {t0} s (ramirobentes) |
-| Substitution during a possession (incl. between FTs) | options A / B / C must stay computable | **open** | {n_trip_sub:,} of {trips:,} multi-FT trips ({pct(n_trip_sub, trips)}) |
+| Substitution during a possession (incl. between FTs) | pbpstats hybrid: possession to the lineup at its end, free-throw points to the lineup at the foul; A and C stay computable | decided (owner 2026-10-22) | {n_trip_sub:,} of {trips:,} multi-FT trips ({pct(n_trip_sub, trips)}) |
 | Offensive rebound | does not end possession; record `num_chances` | decided | {orb:,} offensive rebounds |
 | Flagrant foul | FT trip + retained possession = 2 possessions | decided | {fl_fouls:,} flagrant fouls, {fl_fts:,} flagrant FTs |
 | Technical free throws | no start/end; team points; `is_technical_ft`; excluded from lineup efficiency / RAPM | decided | {tech_n:,} technical FTs ({tech_made:,} made) |
@@ -636,8 +636,8 @@ Largest differences:
   exclusion.
 - **Reference only, not a decision:** pbpstats' source code uses a hybrid for substitutions
   during a possession — the possession is credited to the lineup on court when it ends, free-throw
-  points to the lineup on court at the time of the foul. The substitution rule (case 2) stays
-  **open** in the owner's `custom` profile.
+  points to the lineup on court at the time of the foul. The owner decided on 2026-10-22 to follow
+  it in both profiles.
 - **Scoring by the team not on offense:** `docs/validation/scoring_attribution.md`. With the
   reference segmentation, almost all such events are and-1 free throws (the reference ends the
   possession on the made shot) or technical FTs; a handful are FTs at a period boundary.

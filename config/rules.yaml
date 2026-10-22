@@ -16,11 +16,14 @@ end_of_period:
   clock_precision: exact
 
 substitution_credit:
-  # OPEN, owner has not decided. Data must support all three:
+  # DECIDED (owner 2026-10-22): follow pbpstats' hybrid, in both profiles. Measured first: option A below moves 7.1 % of
+  # all points between lineups (docs/validation/onoff_credit_methods.md). The data keeps A and C computable:
   #   A = whole possession credited to the lineup on court when it ends
-  #   B = FT points credited to the lineup on court at the time of the foul
+  #   B = FT points credited to the lineup on court at the time of the foul (+ possessions to the lineup at the end) = the hybrid
   #   C = Cleaning the Glass chance split
-  method: null
+  method: pbpstats_hybrid
+  possessions_to: lineup_at_possession_end
+  free_throw_points_to: lineup_at_foul
 
 chances:
   # Events that start a new chance inside the same possession (num_chances per possession).
@@ -107,11 +110,11 @@ analysis:
   end_of_period_thresholds_to_compare: [2, 3, 5]
 
 rapm:
-  # Not basketball rules in themselves, but choices that decide what RAPM means (metrics/rapm.py). All [待確認]
-  # until the owner confirms them; every fitted row records them.
+  # Not basketball rules in themselves, but choices that decide what RAPM means (metrics/rapm.py). Confirmed by the
+  # owner 2026-10-22; every fitted row records them.
   # One observation = one possession; the whole possession (free throws included) is credited to the lineup on
   # the floor when it ends (substitution option A), because a possession-level observation cannot split one
-  # possession across lineups. The A/B/C question itself stays open (docs/validation/onoff_credit_methods.md).
+  # possession across lineups; the on/off tables use the hybrid (decided 2026-10-22; docs/validation/onoff_credit_methods.md).
   credit: end_lineup
   exclude_end_of_period_heave: true     # pbpstats: a 0-point possession starting with <= 2 s left says little
   exclude_garbage_time: true            # Cleaning the Glass definition (garbage_time above); decided at RAPM build time
@@ -178,9 +181,11 @@ profiles:
       exclude_from_rapm: false
       credited_to: lineup_at_foul
   custom:
-    # The owner's adjustments; the substitution question stays open here.
+    # The owner's adjustments; the substitution credit is the same pbpstats hybrid (decided 2026-10-22).
     substitution_credit:
-      method: null
+      method: pbpstats_hybrid
+      possessions_to: lineup_at_possession_end
+      free_throw_points_to: lineup_at_foul
     technical_ft:
       exclude_from_lineup_efficiency: true
       exclude_from_rapm: true

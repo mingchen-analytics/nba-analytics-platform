@@ -11,7 +11,7 @@ def test_rules_yaml_has_decided_thresholds():
     r = load_rules()
     assert r["rules_version"]
     assert r["end_of_period"]["end_of_period_threshold_secs"] == 2
-    assert r["substitution_credit"]["method"] is None  # open decision: must stay unset
+    assert r["substitution_credit"]["method"] == "pbpstats_hybrid"  # decided 2026-10-22
     assert r["chances"]["boundaries"] == ["offensive_rebound"]
     assert r["garbage_time"]["retroactive_until_game_end"] is True
     gt = r["garbage_time"]
@@ -79,7 +79,7 @@ def test_prep_writes_draft_and_csv(tmp_path, monkeypatch):
     for case in ("End-of-period", "Substitution during a possession", "Offensive rebound", "Flagrant",
                  "Technical free throws", "Team rebound", "Jump ball", "start type", "Garbage time"):
         assert case.lower() in text.lower(), case
-    assert "**open**" in text  # the open rule is not decided by the draft
+    assert "decided (owner 2026-10-22)" in text  # the substitution rule is now decided
     assert sum(1 for _ in open(csv, encoding="utf-8")) == 1231
 
 
@@ -90,7 +90,7 @@ def test_rule_profiles_copy_then_deviate():
     assert compat["substitution_credit"] == {"method": "pbpstats_hybrid",
                                              "possessions_to": "lineup_at_possession_end",
                                              "free_throw_points_to": "lineup_at_foul"}
-    assert custom["substitution_credit"]["method"] is None  # still open in the owner's profile
+    assert custom["substitution_credit"] == compat["substitution_credit"]  # decided 2026-10-22: the same hybrid
     assert custom["technical_ft"]["exclude_from_lineup_efficiency"] is True
     # shared values are untouched by either profile
     assert compat["end_of_period"] == custom["end_of_period"] == load_rules()["end_of_period"]
