@@ -15,7 +15,7 @@ Team-seasons compared: **1,372**; equal: **1,365**; different: **7**; without a 
 | 2024-25 | playoffs | GSW | 1,138 | 1,237 | -99 | 1 |
 | 2024-25 | playoffs | MIN | 1,548 | 1,636 | -88 | 1 |
 
-Differences come from games whose source score and official box disagree, or incomplete box scores (see `docs/validation/box_vs_pbp.md` and check 111 in `docs/validation/possession_summary.md`), or from a game that has a box score but no play-by-play (last column; it has no possessions).
+Differences come from games whose source score and official box disagree, or incomplete box scores (see `docs/validation/box_vs_pbp.md` and check 112 in `docs/validation/possession_summary.md`), or from a game that has a box score but no play-by-play (last column; it has no possessions).
 
 ## Four factors: shot counts against the official box score
 

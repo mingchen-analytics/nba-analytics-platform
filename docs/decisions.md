@@ -1159,3 +1159,16 @@ log entries that say "check 111" for the possession points check mean 112 now.
   rebound is by the rebounder's team in 14 of 16 rows (the other two are a foul on the rebounder's team and a tip-in that precedes a heave). The official file shows the same inconsistent stamps, so the error is NBA.com's
   stat-keeping, not an artefact of the source. The new time is a lower bound (the next event's time), not an estimate of the true time. Effect: no lineup change (no substitution lies between the old and the new time except one
   rebound that now precedes a substitution at the same second), no heave flag changes; only the start time of 16 possessions of 7.3 million moves, by at most 6 s.
+
+## 2026-10-22 — 2017-18 time corrections revised after the owner's video check; why the whole-seconds reading is worth 20 points
+
+- **Video check (owner)**: `0021700079` event 90 (a rebound) happened at **3:58**, the second of the missed shot it follows, because that shot was **blocked**: the rebound is entered late.
+  Rule now in `corrections.csv`: when the missed shot before a displaced rebound was blocked (the source row has a blocker), the rebound takes the missed shot's time. This applies to 4 of the 16 time rows
+  (`0021700012` event 300, `0021700075` 392, `0021700079` 90, `0021700192` 266); their moves are 3, 6, 9 and 4 s earlier than the stamp. The other 12 follow shots that were not blocked
+  (rebounds follow unblocked misses by a median of 3 s, blocked ones by 2 s, so a block is not the only cause); they keep the next event's time, the latest time that keeps the clock from
+  running backwards, and are listed in `docs/validation/corrections_2017_18_audit.md` for further checking. **[待確認]** the owner may check more of them on video.
+- **Why exact-time vs whole-seconds is worth about 20 points**: in 2016-17, 502 zero-point possessions start with 2.0-3.0 s left in a period; they lie in 460 of 2,460 team-games (18.7 %) and each makes
+  one team's count exactly 1 higher than pbpstats' (which rounds to whole seconds and excludes them). Removing exactly those possessions lifts identical team-games from 80.3 % to 98.2 %: arithmetic, not tuning.
+- **Operational**: the reload of 2017-18 ran into a MemoryError in the lineup parser (every lineup entry parsed separately: millions of strings). `parse_player_keys` now parses each distinct string once and maps it back (identical
+  result on real data); `NBA_PLATFORM_MEMORY_LIMIT` caps DuckDB memory. A further failure came from low disk space (C: had 1.4 GB free), so the staging checks of the 2017-18 reload were not stored again; the season's events, stints
+  and possessions are the corrected ones.

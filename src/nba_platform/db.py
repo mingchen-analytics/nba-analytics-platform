@@ -3,7 +3,7 @@
 Default location: %LOCALAPPDATA%\\nba_platform\\nba_platform.duckdb (outside the project
 folder, so folder-sync tools such as Synology Drive never touch it; a sync client
 corrupted the in-project file on 2026-10-17, see docs/decisions.md).
-NBA_PLATFORM_DB optionally overrides it.
+NBA_PLATFORM_DB optionally overrides it; NBA_PLATFORM_MEMORY_LIMIT (for example "3GB") caps DuckDB memory so it spills to disk when Windows runs short of commit memory.
 """
 
 from __future__ import annotations
@@ -32,6 +32,9 @@ def connect(path: Path | str = DB_PATH, read_only: bool = False) -> duckdb.DuckD
     if str(path) != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(path))
+    limit = os.environ.get("NBA_PLATFORM_MEMORY_LIMIT")
+    if limit:   # e.g. "3GB": DuckDB spills to disk instead of failing when Windows commit memory is low
+        con.execute(f"SET memory_limit = '{limit}'")
     init_schema(con)
     return con
 

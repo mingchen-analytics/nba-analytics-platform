@@ -4,7 +4,7 @@ Our possessions (`core.possessions`, profile and rules version recorded per row)
 
 | check | what | level | status | checked | failed |
 |---|---|---|---|---|---|
-| 111 | possession points + FTs outside possessions = final score | hard | pass | 2460 | 0 |
+| 112 | possession points + FTs outside possessions = final score | hard | pass | 2460 | 0 |
 | 7 | team possession counts in a game differ by <= 2 | warning | fail | 1230 | 23 |
 | 8 | our possession counts vs pbpstats (per team-game) | warning | fail | 2460 | 723 |
 

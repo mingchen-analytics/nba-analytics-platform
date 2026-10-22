@@ -85,16 +85,20 @@ def read_raw(season_end_year: int, season_type: str) -> pd.DataFrame:
 
 
 def parse_player_keys(keys: pd.Series, column: str = "player") -> pd.DataFrame:
-    """Split '1477 Bruce Bowen' into player_id (Int64) and name. NULL stays NULL."""
-    parts = keys.str.extract(PLAYER_KEY_RE)
-    bad = keys.notna() & parts[0].isna()
-    if bad.any():
-        examples = keys[bad].unique()[:5].tolist()
-        raise StagingError(f"{column}: {int(bad.sum())} values are not 'ID Name': {examples}")
-    return pd.DataFrame(
-        {"player_id": pd.to_numeric(parts[0]).astype("Int64"), "name": parts[1].str.strip()},
-        index=keys.index,
-    )
+    """Split '1477 Bruce Bowen' into player_id (Int64) and name. NULL stays NULL.
+
+    Each distinct string is parsed once and mapped back: a season has a few hundred distinct players but millions
+    of lineup entries, and parsing every entry used several GB (a MemoryError on a busy machine, 2026-10-22).
+    """
+    distinct = pd.Series(keys.dropna().unique(), dtype=object)
+    parts = distinct.str.extract(PLAYER_KEY_RE)
+    bad_values = distinct[parts[0].isna()]
+    if len(bad_values):
+        bad = keys.isin(bad_values.tolist())
+        raise StagingError(f"{column}: {int(bad.sum())} values are not 'ID Name': {keys[bad].unique()[:5].tolist()}")
+    ids = pd.Series(pd.to_numeric(parts[0]).astype("Int64").to_numpy(), index=distinct.to_numpy())
+    names = pd.Series(parts[1].str.strip().to_numpy(), index=distinct.to_numpy())
+    return pd.DataFrame({"player_id": keys.map(ids).astype("Int64"), "name": keys.map(names)}, index=keys.index)
 
 
 def parse_lineups(lineups: pd.Series, column: str = "lineup") -> tuple[pd.Series, pd.DataFrame]:
