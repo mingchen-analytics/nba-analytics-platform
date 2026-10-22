@@ -200,3 +200,32 @@ def test_layer2_pages_are_read_only_and_use_marts():
         text = page.read_text(encoding="utf-8").upper()
         assert "READ_ONLY=TRUE" in text and "CORE.POSSESSIONS" not in text and "CORE.STINTS" not in text
         assert not any(sql in text for sql in ("INSERT INTO", "UPDATE ", "DELETE FROM", "CREATE ", "DROP "))
+
+
+RAPM_PAGE = APP.parent / "pages" / "11_RAPM.py"
+
+
+def test_rapm_page_renders_and_filters():
+    import duckdb
+    from streamlit.testing.v1 import AppTest
+
+    con = duckdb.connect(str(DB_PATH), read_only=True)
+    try:
+        built = con.execute("SELECT count(*) FROM information_schema.tables WHERE table_name = 'player_rapm'").fetchone()[0]
+    finally:
+        con.close()
+    if not built:
+        pytest.skip("marts.player_rapm not fitted")
+    at = AppTest.from_file(str(RAPM_PAGE), default_timeout=120).run()
+    assert not at.exception, at.exception
+    assert at.title[0].value == "RAPM (prototype)" and len(at.dataframe) == 1 and len(at.dataframe[0].value) >= 10
+    at.toggle[0].set_value(True).run()
+    assert not at.exception, at.exception
+    at.selectbox[1].select("d_rapm").run()
+    assert not at.exception, at.exception
+
+
+def test_rapm_page_is_read_only_and_uses_marts():
+    text = RAPM_PAGE.read_text(encoding="utf-8").upper()
+    assert "READ_ONLY=TRUE" in text and "CORE.POSSESSIONS" not in text and "REFERENCE." not in text
+    assert not any(sql in text for sql in ("INSERT INTO", "UPDATE ", "DELETE FROM", "CREATE ", "DROP "))
