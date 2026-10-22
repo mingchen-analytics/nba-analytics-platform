@@ -28,14 +28,20 @@ SCHEMA_SQL = PROJECT_ROOT / "sql" / "schema.sql"
 def connect(path: Path | str = DB_PATH, read_only: bool = False) -> duckdb.DuckDBPyConnection:
     """Open the database. Writers (the pipeline) run the DDL; read-only users never write."""
     if read_only:
-        return duckdb.connect(str(path), read_only=True)
+        return _limited(duckdb.connect(str(path), read_only=True))
     if str(path) != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(str(path))
-    limit = os.environ.get("NBA_PLATFORM_MEMORY_LIMIT")
-    if limit:   # e.g. "3GB": DuckDB spills to disk instead of failing when Windows commit memory is low
-        con.execute(f"SET memory_limit = '{limit}'")
+    con = _limited(duckdb.connect(str(path)))
     init_schema(con)
+    return con
+
+
+def _limited(con: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyConnection:
+    """Optional NBA_PLATFORM_MEMORY_LIMIT (for example "3GB"): DuckDB spills to disk instead of failing with an
+    allocation error when Windows runs short of commit memory."""
+    limit = os.environ.get("NBA_PLATFORM_MEMORY_LIMIT")
+    if limit:
+        con.execute(f"SET memory_limit = '{limit}'")
     return con
 
 
