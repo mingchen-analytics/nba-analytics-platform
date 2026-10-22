@@ -1,5 +1,7 @@
 # nba-analytics-platform
 
+[![tests](https://github.com/mingchen-analytics/nba-analytics-platform/actions/workflows/tests.yml/badge.svg)](https://github.com/mingchen-analytics/nba-analytics-platform/actions/workflows/tests.yml)
+
 A personal NBA data platform built from raw play-by-play: a validated event database for
 **1996-97 → 2025-26**, my own **stint and possession logic** checked game by game against an
 independent reference, on/off and lineup tables built on those possessions, and a **Streamlit dashboard** on top. RAPM is next.
@@ -167,7 +169,7 @@ py -3.13 -m venv .venv
 .venv/Scripts/python -m pip install -r requirements.txt
 .venv/Scripts/python -m pip install -e .
 
-# tests: the unit tests run without any data; integration tests are skipped without a database
+# tests: the unit tests run without any data (this is what CI runs on every push); integration tests are skipped without a database
 .venv/Scripts/python -m pytest -q
 
 # download one season (raw files + manifest with url, time, sha256), then load and validate it
