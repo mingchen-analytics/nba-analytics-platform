@@ -934,3 +934,20 @@ teams' possession counts differ by more than 2, 159 `implied` possessions (neigh
 Not done, left for the next session (owner): classify the remaining ~75 `implied` possessions; decide
 whether a reordering rule for late-added events (by event number) belongs in the `custom` profile
 (it would change the "source order" principle) or stays a documented source defect.
+
+## 2026-10-22 — Published to GitHub (private)
+
+Repository: `mingchen-analytics/nba-analytics-platform`, **private**. Decisions (owner):
+1. **History:** a new single initial commit. The 75 earlier commits (which contain 60 per-season
+   detail files quoting source play-by-play text, and the early commits' author email) stay on the
+   local branch `main-old-history` and in a `git bundle` outside the repository; they are never
+   pushed. Only `main` is pushed.
+2. **Manifest:** purchased BigDataBall files are listed in the git-ignored
+   `data/raw/manifest_local.csv`; the committed `data/raw/manifest.csv` holds publicly downloadable
+   sources only (code in `ingest/download.py` merges both when reading).
+3. **License:** MIT, for the code and documentation only; the README says no third-party data is covered.
+4. **Author e-mail:** GitHub noreply address (repository-local git config).
+5. The short real 2004-05 sequences in `tests/fixtures/possessions/` (IDs, clocks, scores; no text)
+   are kept; the README says so.
+Making the repository public, and deploying the dashboard publicly, are separate decisions
+(data terms of ramirobentes / NBA.com) **[待確認]**.

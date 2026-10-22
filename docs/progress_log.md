@@ -809,3 +809,11 @@
 
 - 2017-18 例行賽（70.4% 完全一致、159 個 implied 回合）的原因，約一半可歸因於來源把「事後補登的事件」依時間插進序列，造成事件順序錯亂；證據：53% 的 implied 回合靠近補登事件（一般回合 23%），2017-18 靠近補登事件的回合高達 23%（其他年份 5–18%）。
 - 另一半尚未分析；是否為補登事件加入重排規則（會改變「照來源順序」的決定），留待下次你決定。細節在 `docs/decisions.md`。
+
+## 發布到 GitHub（私人儲存庫）（2026-10-22 00:44）
+
+- `mingchen-analytics/nba-analytics-platform`（Private），遠端只有 `main`，一個全新起點 commit（216 個檔案），作者信箱為 GitHub noreply。
+- 舊的 75 個 commit 留在本機分支 `main-old-history`，另備份成 `nba-analytics-platform_full_history_2026-10-22.bundle`（專案資料夾旁），都不上傳。
+- 購買的 BigDataBall 檔案清單改放本機 `data/raw/manifest_local.csv`（git 忽略），公開的 manifest 只留可下載的來源；加 MIT LICENSE 與 README 的資料說明。
+- 發布前掃描：沒有信箱、本機路徑、token、資料檔、來源原文；新歷史裡沒有任何 details 檔。
+- 還沒決定：要不要改成公開、Dashboard 要不要公開部署（資料條款）。
