@@ -829,3 +829,10 @@
 
 - `mingchen-analytics/nba-analytics-platform` 改為 Public；公開前再掃描一次（只有 noreply 信箱、5 個 commit、沒有 details 檔／BigDataBall 清單／敏感字串／資料檔）；已設定 description 與 8 個 topics，關閉 wiki 與 projects；匿名連線確認 README 與圖片可讀取。
 - Dashboard 的公開部署（資料條款）仍未決定。
+
+## 隔夜：on/off 與陣容 mart（分支 overnight-dev-2026-10-22，2026-10-22 03:26）
+
+- 新增 `marts/onoff.py`：`marts.player_onoff_season`（22,571 列）與 `marts.lineup_stats`（420,946 列），在資料庫快照副本上建置約 15 秒；歸屬方式用 `pbpstats_compat` 混合法（回合算給結束時的陣容，罰球得分算給犯規當下的陣容），A/B/C 仍待你決定。
+- 硬檢查全部通過（每個回合有結束 stint、得分守恆、球員回合/得分/秒數 = 5 × 陣容）；報告 `docs/validation/onoff_checks.md`；12 個新測試，全部 276 個測試通過。
+- 這是新增資料表（schema 變更），**等你核准才會合併進 main**；還沒有頁面。
+- 下載程式同時在主資料庫執行，我只動快照副本。

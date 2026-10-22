@@ -50,7 +50,7 @@ def _step(name, fn, results):
 
 
 def marts_and_reports(con, results) -> None:
-    from nba_platform.marts import box_marts, player_game_pbp, shot_zones, tracking
+    from nba_platform.marts import box_marts, onoff, player_game_pbp, shot_zones, tracking
     from nba_platform.reference import player_box
     from nba_platform.validate import box_vs_pbp, possession_summary, tracking_quality, tracking_vs_box
 
@@ -65,6 +65,13 @@ def marts_and_reports(con, results) -> None:
     _step("marts: player_game, player_season, team_game, team_season", box, results)
     _step("marts: shot zones", lambda: shot_zones.build(con), results)
     _step("marts: player tracking", lambda: tracking.build(con), results)
+
+    def onoff_marts():
+        out = onoff.build(con)
+        onoff.write_report(con, VALIDATION / "onoff_checks.md")
+        return out
+
+    _step("marts: on/off and lineups", onoff_marts, results)
     _step("report: box_vs_pbp", lambda: box_vs_pbp.write_report(con, VALIDATION / "box_vs_pbp.md"), results)
     _step("report: tracking_vs_box", lambda: tracking_vs_box.write_report(con, VALIDATION / "tracking_vs_box.md"), results)
     _step("report: tracking_quality", lambda: tracking_quality.write_report(con, VALIDATION / "tracking_quality.md"), results)

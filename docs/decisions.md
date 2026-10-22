@@ -981,3 +981,25 @@ commits, no detail files, no purchased-file listing, no secrets or local paths, 
 the public manifest. Wiki and projects disabled; topics: nba, basketball-analytics, sports-analytics,
 data-engineering, duckdb, streamlit, python, play-by-play. Deploying the dashboard publicly stays a
 separate, undecided question (data terms) **[待確認]**.
+
+## 2026-10-22 — On/off and lineup marts (built overnight on a branch; waiting for owner approval)
+
+New tables `marts.player_onoff_season` and `marts.lineup_stats` (`marts/onoff.py`), built from our own
+stints, possessions and events. A schema addition: **not merged until the owner approves** (working agreement 8).
+- **Crediting = the `pbpstats_compat` hybrid** (CLAUDE.md), recorded in `credit_method = 'pbpstats_hybrid'`:
+  a possession goes to the stint on the floor when it ends, field-goal points go with the possession,
+  free-throw points go to the stint on the floor at the foul. The open A/B/C question is **not decided** by this;
+  the columns allow A, B and C to be stored side by side later. **[待確認]**
+- A counted free throw without a linked foul (56 in all seasons) is credited to its own stint, and counted in
+  `docs/validation/onoff_checks.md`. **[待確認]**
+- Technical free throws and free throws between possessions are counted nowhere. Heave and garbage possessions are
+  **counted, not excluded**; their counts are columns (`*_heave_poss`, `*_garbage_poss`), so whether to exclude
+  them stays a decision for the page or for RAPM.
+- Checks (hard, the build is rolled back): every possession has an end stint; the offense team is home or away;
+  credited points = possession points (7,723,936); stint possessions = core.possessions; per team-season the players'
+  possessions, points and seconds are exactly 5 times the lineups'. All pass for all 60 season files.
+- Sanity (not a check): league points per 100 possessions rise from 104.0 (1996-97) to 113.3 (2024-25); LeBron James 2012-13 MIA
+  on/off +15.2, Stephen Curry 2015-16 GSW +22.0; player on-court minutes differ from official box minutes by 2.4 minutes
+  on average over 10,945 player-seasons with 500+ minutes (the large single gaps come from incomplete box scores,
+  see `docs/validation/box_vs_pbp.md`).
+- No page yet: the owner wants to see the layout of the existing pages first.

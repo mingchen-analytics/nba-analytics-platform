@@ -60,8 +60,8 @@ Notes for layer 1:
 | Page | Questions | Content | Needs |
 |---|---|---|---|
 | Team efficiency | how good is the offense / defense | points per 100 possessions, four factors, with garbage-time and technical-FT switches | `core.possessions`, rules profiles |
-| On/off | how does the team do with a player on vs off | on, off, difference per 100 possessions, possession counts next to every rate | `core.stints`, `core.possessions`, events with `stint_id` |
-| Lineups | which lineups work | five-man and two-man tables with minimum possessions | `core.stints`, `core.possessions` |
+| On/off | how does the team do with a player on vs off | on, off, difference per 100 possessions, possession counts next to every rate | `marts.player_onoff_season` (built, waiting for owner approval; no page yet) |
+| Lineups | which lineups work | five-man and two-man tables with minimum possessions | `marts.lineup_stats` (five-man built, waiting for owner approval; two-man not built; no page yet) |
 | Rule explorer | how much do the rules matter | the same player / lineup under `pbpstats_compat` vs `custom`, and substitution option A/B/C | the three credit methods (CLAUDE.md, open question) |
 | Tracking per game | how do the tracking numbers move | distance, touches, passes per game; contested shots, deflections, loose balls | `reference.nba_box_tracking`, `reference.nba_box_hustle` (2013-14 → 2025-26 playoffs, 2024-25 → 2025-26 regular season so far) |
 | Own metrics from tracking | numbers that exist nowhere else | to be designed (for example touches and passes per 100 possessions; contested shots per 100 opponent possessions) | tracking boxes + our possessions |

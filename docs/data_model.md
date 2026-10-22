@@ -84,6 +84,8 @@ erDiagram
 | `marts.shot_zones_team` | `(season_end_year, season_type, team_id, side, zone)` **PRIMARY KEY** | `core.shots`, `core.games`, `marts.shot_zones_league` |
 | `marts.shot_zones_player` | `(season_end_year, season_type, player_id, zone)` **PRIMARY KEY** | `core.shots`, `core.shot_quality_flags` |
 | `marts.player_tracking_season` | `(season_end_year, season_type, player_id, team_id)` **PRIMARY KEY** | `reference.nba_tracking`, `reference.nba_hustle` |
+| `marts.player_onoff_season` | `(season_end_year, season_type, team_id, player_id)` **PRIMARY KEY** | `core.stints`, `core.possessions`, `core.possession_stint_segments`, `core.events`, `core.games` |
+| `marts.lineup_stats` | `(season_end_year, season_type, team_id, lineup_key)` **PRIMARY KEY** | same as above |
 
 ## Staging and validation
 
