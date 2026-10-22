@@ -131,3 +131,37 @@ def test_rebuild_replaces_the_tables(con):
     onoff.build(con)
     out = onoff.build(con)
     assert out["player_rows"] == 11 and con.execute("SELECT count(*) FROM marts.player_onoff_season").fetchone()[0] == 11
+
+
+def test_pairs_cover_every_two_teammates_and_conserve(con):
+    out = onoff.build(con)
+    # home: 10 pairs in stint 1 + 4 new pairs with 16 in stint 2 (11-14 x 16); away: 10 pairs
+    assert out["pair_rows"] == 24
+    assert con.execute("SELECT count(*) FROM marts.pair_stats WHERE player_a >= player_b").fetchone()[0] == 0
+    row = con.execute("SELECT stints, secs, o_poss, o_pts, d_poss, d_pts FROM marts.pair_stats WHERE player_a = 11 AND player_b = 12").fetchone()
+    assert row == (2, 200.0, 2, 4, 2, 3)
+    assert con.execute("SELECT o_poss, o_pts FROM marts.pair_stats WHERE player_a = 11 AND player_b = 15").fetchone() == (1, 4)
+    assert con.execute("SELECT sum(o_poss) FROM marts.pair_stats WHERE team_id = 1").fetchone()[0] == 10 * 2
+
+
+def test_option_a_moves_only_free_throw_points(con):
+    b = onoff.player_rows(con, "pbpstats_hybrid").set_index("player_id").sort_index()
+    a = onoff.player_rows(con, "end_lineup").set_index("player_id").sort_index()
+    assert (a["on_o_poss"] == b["on_o_poss"]).all() and (a["on_d_poss"] == b["on_d_poss"]).all()
+    # the two free throws of p3 (foul in stint 1, possession ends in stint 2) move from 15 to 16 under A
+    assert (b.loc[15, "on_o_pts"], a.loc[15, "on_o_pts"]) == (4, 2)
+    assert (b.loc[16, "on_o_pts"], a.loc[16, "on_o_pts"]) == (0, 2)
+    assert set(a["credit_method"]) == {"end_lineup"}
+    assert con.execute("SELECT count(*) FROM information_schema.tables WHERE table_name = 'stint_team'").fetchone()[0] == 0
+
+
+def test_unknown_credit_method_fails(con):
+    with pytest.raises(ValueError, match="unknown credit method"):
+        onoff.player_rows(con, "chance_split")
+
+
+def test_compare_report(con, tmp_path):
+    out = onoff.compare_credit_methods(con, tmp_path / "r.md", min_poss=1)
+    assert out["moved_points"] == 2 and out["players_compared"] == 11
+    text = (tmp_path / "r.md").read_text(encoding="utf-8")
+    assert "end_lineup" in text and "| 2024-25 | regular |" in text

@@ -1028,3 +1028,16 @@ clock), i.e. the rebound exists in the official file but is not where the primar
 - Not done: category 4's 18 cases with a rebound row of the other team are only partly traced (the rebound row is
   matched to no miss, or follows a non-final free throw); no correction rows written; whether to add a reordering rule in
   `custom` stays the owner's decision. **[待確認]**
+
+## 2026-10-22 — On/off tables approved; pair table; option A against the hybrid
+
+- **Owner approved** the new tables `marts.player_onoff_season`, `marts.lineup_stats`, and the new
+  `marts.pair_stats` (two teammates on the floor; each stint gives 10 pairs per team; hard check: per team-season the
+  pairs' possessions, points and seconds are exactly 10 times the lineups'). Also approved: the team efficiency table
+  (next entry). Credit method stays `pbpstats_hybrid`; the A/B/C question remains open.
+- **Option A (`end_lineup`) computed for comparison only** (`docs/validation/onoff_credit_methods.md`). Possession counts
+  are identical; only free-throw points move. Substitutions are usually made in the dead ball after a foul and before the
+  free throws: 28.0 % of made free throws come after a substitution that followed their foul, and for 40.9 % the lineup at the foul
+  differs from the lineup at the end of the possession. Result: **548,053 points (7.1 % of possession points) move**;
+  a player's net on-off changes by 1.19 points per 100 possessions on average (players with 1,000+ offensive possessions on), and
+  by more than 1 point for about 40 % of them. The choice matters; it remains the owner's (pending_decisions item 4).

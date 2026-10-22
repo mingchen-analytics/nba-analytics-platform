@@ -280,10 +280,10 @@ Tracking misses some games, so `gp` can be lower than the box score (`docs/valid
 `count` columns can be shown per game (divided by `gp`, or `hustle_gp` for hustle) or per 36 minutes;
 `rate` columns (percentages, averages, per-touch values) are never scaled.
 
-## marts.player_onoff_season, marts.lineup_stats
+## marts.player_onoff_season, marts.lineup_stats, marts.pair_stats
 
 On/off and lineup results counted from our own stints and possessions (`marts/onoff.py`; no NBA.com numbers).
-Built on a branch and **waiting for the owner's approval of the new tables** (CLAUDE.md working agreement 8).
+New tables approved by the owner on 2026-10-22 (CLAUDE.md working agreement 8).
 Each row carries `credit_method`, `rules_version` and `rules_profile`.
 
 **Crediting (`pbpstats_hybrid`; the A/B/C question for a substitution during a possession is still open):** a
@@ -298,10 +298,12 @@ counts are columns so a page can exclude them.
 |---|---|---|
 | `marts.player_onoff_season` | `(season_end_year, season_type, team_id, player_id)` **PRIMARY KEY**; a traded player has one row per team | `games`, `on_secs`, `off_secs`; for `on_` and `off_` each: `o_poss`, `o_pts`, `o_heave_poss`, `o_garbage_poss` (offense) and `d_poss`, `d_pts`, `d_heave_poss`, `d_garbage_poss` (defense); `on_ortg`, `on_drtg`, `on_net`, `off_ortg`, `off_drtg`, `off_net` (per 100 possessions; NULL when there is no possession), `net_on_minus_off` |
 | `marts.lineup_stats` | `(season_end_year, season_type, team_id, lineup_key)` **PRIMARY KEY**; `lineup_key` = the five player IDs sorted and joined with `-` | `p1..p5` (sorted), `games`, `stints`, `secs`, `o_poss`, `o_pts`, `o_heave_poss`, `o_garbage_poss`, `d_poss`, `d_pts`, `d_heave_poss`, `d_garbage_poss`, `ortg`, `drtg`, `net` |
+| `marts.pair_stats` | `(season_end_year, season_type, team_id, player_a, player_b)` **PRIMARY KEY**, `player_a < player_b` | two teammates on the floor together (each stint gives 10 pairs per team): `games`, `stints`, `secs`, the same eight counts as `lineup_stats`, `ortg`, `drtg`, `net` |
 
 `off_` = the team's total minus `on_` (same team and season). The build is rolled back unless every possession has an end
 stint, credited points equal possession points, and per team-season the players' possessions, points and seconds are exactly
-5 times the lineups' (`docs/validation/onoff_checks.md`). Snapshot build (all 60 season files): 22,571 player rows, 420,946 lineups.
+5 times the lineups' and the pairs' exactly 10 times (`docs/validation/onoff_checks.md`). Snapshot build (all 60 season files): 22,571 player rows, 420,946 lineups, 151,672 pairs.
+`python -m nba_platform.marts.onoff --compare` also writes `docs/validation/onoff_credit_methods.md`: on/off under option A (`end_lineup`) against the hybrid.
 
 ## core.possessions, core.possession_stint_segments (Claude-written, owner-reviewed)
 

@@ -69,9 +69,10 @@ def marts_and_reports(con, results) -> None:
     def onoff_marts():
         out = onoff.build(con)
         onoff.write_report(con, VALIDATION / "onoff_checks.md")
+        out["credit_methods"] = onoff.compare_credit_methods(con, VALIDATION / "onoff_credit_methods.md")
         return out
 
-    _step("marts: on/off and lineups", onoff_marts, results)
+    _step("marts: on/off, lineups and pairs", onoff_marts, results)
     _step("report: box_vs_pbp", lambda: box_vs_pbp.write_report(con, VALIDATION / "box_vs_pbp.md"), results)
     _step("report: tracking_vs_box", lambda: tracking_vs_box.write_report(con, VALIDATION / "tracking_vs_box.md"), results)
     _step("report: tracking_quality", lambda: tracking_quality.write_report(con, VALIDATION / "tracking_quality.md"), results)

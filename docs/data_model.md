@@ -86,6 +86,7 @@ erDiagram
 | `marts.player_tracking_season` | `(season_end_year, season_type, player_id, team_id)` **PRIMARY KEY** | `reference.nba_tracking`, `reference.nba_hustle` |
 | `marts.player_onoff_season` | `(season_end_year, season_type, team_id, player_id)` **PRIMARY KEY** | `core.stints`, `core.possessions`, `core.possession_stint_segments`, `core.events`, `core.games` |
 | `marts.lineup_stats` | `(season_end_year, season_type, team_id, lineup_key)` **PRIMARY KEY** | same as above |
+| `marts.pair_stats` | `(season_end_year, season_type, team_id, player_a, player_b)` **PRIMARY KEY** | same as above |
 
 ## Staging and validation
 
