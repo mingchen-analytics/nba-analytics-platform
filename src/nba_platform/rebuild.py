@@ -3,8 +3,10 @@
 1. core tables for every loaded season: stints, possessions, segments, event links
    (nba_platform.build_core, profile `pbpstats_compat`), with checks 111 / 7 / 8 and per-season reports;
 2. reference.nba_player_box and the marts: player_game_pbp, player_game / player_season / team_game /
-   team_season, shot zones, player tracking (each a full rebuild in one transaction);
-3. the reports: box_vs_pbp, tracking_vs_box, box_marts, possession_summary.
+   team_season, shot zones, player tracking, single-game tracking, on/off + lineups + pairs (with the
+   credit-method comparison), team efficiency (each a full rebuild in one transaction);
+3. the reports: box_vs_pbp, tracking_vs_box, tracking_quality, box_marts, onoff_checks,
+   onoff_credit_methods, team_efficiency, possession_summary.
 
 A step that fails is printed and recorded, the run continues; the exit code is 1 if any failed.
 Close DBeaver and Streamlit first: the database is opened for writing for the whole run.
