@@ -135,3 +135,28 @@ def test_mixed_rules_versions_fail(con):
     con.execute("UPDATE core.possessions SET rules_profile = 'custom' WHERE game_id = 'G1' AND possession_id = 1")
     with pytest.raises(rapm.RapmError, match="rules versions"):
         rapm.build(con, [(2025, "regular")], {**CFG, "cv_folds": 3})
+
+
+def test_bootstrap_standard_errors_are_positive_reproducible_and_grow_with_noise():
+    quiet, _ = _simulate(n_poss=20_000, noise=0.5, seed=4)
+    loud, _ = _simulate(n_poss=20_000, noise=2.0, seed=4)
+    a = rapm.fit(quiet, CFG, alpha=300.0, bootstrap=12)["players"]
+    b = rapm.fit(loud, CFG, alpha=300.0, bootstrap=12)["players"]
+    assert {"o_se", "d_se", "rapm_se"} <= set(a.columns) and (a["rapm_se"] > 0).all()
+    assert b["rapm_se"].mean() > 2 * a["rapm_se"].mean()                      # four times the noise variance
+    again = rapm.fit(quiet, CFG, alpha=300.0, bootstrap=12)["players"]
+    assert np.allclose(a["rapm_se"], again["rapm_se"])                         # same seed, same resamples
+    assert "rapm_se" not in rapm.fit(quiet, CFG, alpha=300.0)["players"].columns
+
+
+def test_mart_keeps_the_standard_errors_and_adds_the_columns_to_an_older_table(con):
+    con.execute("CREATE SCHEMA IF NOT EXISTS marts")
+    con.execute("CREATE TABLE marts.player_rapm (window_id TEXT NOT NULL, player_id INTEGER NOT NULL, off_poss INTEGER NOT NULL, def_poss INTEGER NOT NULL, "
+                "o_rapm DOUBLE NOT NULL, d_rapm DOUBLE NOT NULL, rapm DOUBLE NOT NULL, alpha DOUBLE NOT NULL, n_obs INTEGER NOT NULL, "
+                "home_points_per100 DOUBLE NOT NULL, credit_method TEXT NOT NULL, exclude_end_of_period_heave BOOLEAN NOT NULL, "
+                "exclude_garbage_time BOOLEAN NOT NULL, min_possessions_for_own_column INTEGER NOT NULL, rules_version TEXT NOT NULL, "
+                "rules_profile TEXT NOT NULL, PRIMARY KEY (window_id, player_id))")
+    rapm.build(con, [(2025, "regular")], {**CFG, "cv_folds": 3, "bootstrap_samples": 5})
+    assert con.execute("SELECT count(*) FILTER (rapm_se > 0), count(*) FROM marts.player_rapm").fetchone() == (10, 10)
+    rapm.build(con, [(2025, "regular")], {**CFG, "cv_folds": 3, "bootstrap_samples": 0})
+    assert con.execute("SELECT count(*) FILTER (rapm_se IS NULL) FROM marts.player_rapm").fetchone()[0] == 10   # NULL, never an invented 0

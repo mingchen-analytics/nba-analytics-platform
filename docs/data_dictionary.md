@@ -339,7 +339,7 @@ offense columns, five defense columns, home court; penalty by cross-validation g
 (possessions on the floor), `o_rapm`, `d_rapm` (positive = good), `rapm` = sum, all in points per 100 possessions relative to
 an average player; `alpha`, `n_obs`, `home_points_per100`, and the choices that produced the row: `credit_method`
 (`end_lineup`), `exclude_end_of_period_heave`, `exclude_garbage_time`, `min_possessions_for_own_column`, `rules_version`,
-`rules_profile`. Players below the possession minimum share a replacement column and have no row. No standard errors.
+`rules_profile`. Players below the possession minimum share a replacement column and have no row. `o_se`, `d_se`, `rapm_se`: bootstrap standard errors (50 resamples of whole games, same penalty; NULL when none was run).
 
 ## core.possessions, core.possession_stint_segments (Claude-written, owner-reviewed)
 

@@ -1092,3 +1092,8 @@ larger than its standard error); **split-half reliability 0.37 for one season an
 both halves), so single-season values are mostly noise; correlation with raw on/off 0.81 and 0.77; home court +1.6 and +2.1 points per 100.
 Top of 2024-25: Gilgeous-Alexander, Jokić, Finney-Smith, Antetokounmpo, Dončić; of the three seasons: Jokić, Gilgeous-Alexander, Antetokounmpo,
 Green, Wagner. No standard errors in this prototype (a bootstrap by game is the next step).
+- Addendum: **standard errors by bootstrap of whole games** (50 resamples, same penalty; `rules.yaml` `rapm.bootstrap_samples`; the
+  table has `o_se`, `d_se`, `rapm_se`, NULL when no bootstrap was run). Median standard error for players with 1,000+ possessions: 1.22 points per 100
+  (2024-25; offense 0.86, defense 0.86) and 1.28 (three seasons; more marginal players qualify in the longer window, so the medians are over
+  different sets). 73 of 432 players (2024-25) and 131 of 581 (three seasons) are more than two standard errors from zero; the top 10 and the bottom
+  10 are all clear of zero in both windows. The standard errors are sampling noise only; ridge's shrinkage bias is not in them.

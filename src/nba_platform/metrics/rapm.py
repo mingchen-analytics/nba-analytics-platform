@@ -17,9 +17,13 @@ Units: coefficients are points per possession; the reported ratings are per 100 
 points per 100 possessions a player adds on offense, `d_rapm` the points per 100 he prevents on defense
 (positive = good; the sign of the defense coefficient is flipped), `rapm` = `o_rapm + d_rapm`.
 
-Prototype: `marts.player_rapm` is a new table, waiting for the owner's approval. Not a final metric: the ridge
-has no standard errors; `docs/validation/rapm_<window>.md` shows cross-validation, split-half reliability and
-how much the choices matter.
+Standard errors come from a bootstrap of whole games: the games are resampled with replacement (the number of times
+a game is drawn becomes the weight of its possessions), the model is refitted with the same penalty, and the standard
+error is the standard deviation of a player's rating over the resamples. They describe sampling noise only; they do
+not include the bias that ridge shrinkage introduces.
+
+Prototype: `marts.player_rapm` is a new table, waiting for the owner's approval. `docs/validation/rapm_<window>.md`
+shows cross-validation, split-half reliability, the standard errors and how much the choices matter.
 
 Usage:
     python -m nba_platform.metrics.rapm [--seasons 2025:regular,2024:regular] [--report]   # report: docs/validation/rapm_<window>.md
@@ -163,8 +167,23 @@ def cv_alpha(x, y: np.ndarray, groups: np.ndarray, cfg: dict) -> dict:
 # ------------------------------------------------------------------ fit
 
 
-def fit(obs: pd.DataFrame, cfg: dict, alpha: float | None = None) -> dict:
-    """Fit RAPM on possession observations. Returns players (DataFrame), alpha, cv, home_points, n_obs."""
+def bootstrap_se(x, y: np.ndarray, groups: np.ndarray, alpha: float, n_own: int, n_boot: int, seed: int) -> pd.DataFrame:
+    """Standard errors of o_rapm, d_rapm and rapm (per 100 possessions) from a bootstrap of whole games."""
+    games, game_idx = np.unique(groups, return_inverse=True)
+    rng = np.random.default_rng(seed)
+    o, d = np.empty((n_boot, n_own)), np.empty((n_boot, n_own))
+    for b in range(n_boot):
+        weight = np.bincount(rng.integers(0, len(games), len(games)), minlength=len(games))[game_idx].astype(float)
+        keep = weight > 0
+        coef = Ridge(alpha=alpha, solver="sparse_cg", random_state=0).fit(x[keep], y[keep], sample_weight=weight[keep]).coef_
+        o[b], d[b] = 100.0 * coef[:n_own], -100.0 * coef[n_own:2 * n_own]
+    return pd.DataFrame({"o_se": o.std(axis=0, ddof=1), "d_se": d.std(axis=0, ddof=1), "rapm_se": (o + d).std(axis=0, ddof=1)})
+
+
+def fit(obs: pd.DataFrame, cfg: dict, alpha: float | None = None, bootstrap: int = 0) -> dict:
+    """Fit RAPM on possession observations. Returns players (DataFrame), alpha, cv, home_points, n_obs.
+
+    With `bootstrap` > 0 the players also carry o_se, d_se and rapm_se (bootstrap of whole games, same penalty)."""
     players = bucket_players(obs, int(cfg["min_possessions_for_own_column"]))
     own = players.loc[players["own_column"], "player_id"].to_numpy()
     if len(own) == 0:
@@ -182,6 +201,8 @@ def fit(obs: pd.DataFrame, cfg: dict, alpha: float | None = None) -> dict:
     out["o_rapm"] = 100.0 * coef.iloc[:n_own].to_numpy()
     out["d_rapm"] = -100.0 * coef.iloc[n_own:2 * n_own].to_numpy()
     out["rapm"] = out["o_rapm"] + out["d_rapm"]
+    if bootstrap > 0:
+        out = pd.concat([out, bootstrap_se(x, y, obs["game_id"].to_numpy(), alpha, n_own, bootstrap, int(cfg["seed"]))], axis=1)
     return {"players": out, "alpha": float(alpha), "cv": cv, "n_obs": len(obs), "n_own": n_own,
             "n_replacement": int((~players["own_column"]).sum()), "intercept_per100": 100.0 * float(model.intercept_),
             "home_points_per100": 100.0 * float(coef[HOME]),
@@ -209,7 +230,7 @@ def split_half(obs: pd.DataFrame, cfg: dict, alpha: float) -> dict:
 
 DDL = """(
     window_id TEXT NOT NULL, player_id INTEGER NOT NULL, off_poss INTEGER NOT NULL, def_poss INTEGER NOT NULL,
-    o_rapm DOUBLE NOT NULL, d_rapm DOUBLE NOT NULL, rapm DOUBLE NOT NULL,
+    o_rapm DOUBLE NOT NULL, d_rapm DOUBLE NOT NULL, rapm DOUBLE NOT NULL, o_se DOUBLE, d_se DOUBLE, rapm_se DOUBLE,
     alpha DOUBLE NOT NULL, n_obs INTEGER NOT NULL, home_points_per100 DOUBLE NOT NULL,
     credit_method TEXT NOT NULL, exclude_end_of_period_heave BOOLEAN NOT NULL, exclude_garbage_time BOOLEAN NOT NULL,
     min_possessions_for_own_column INTEGER NOT NULL, rules_version TEXT NOT NULL, rules_profile TEXT NOT NULL,
@@ -231,9 +252,13 @@ def build(con, seasons: list[tuple[int, str]], cfg: dict | None = None) -> dict:
     if len(versions) != 1:
         raise RapmError(f"core.possessions holds {len(versions)} rules versions / profiles; expected exactly one: {versions}")
     obs = load_possessions(con, seasons, cfg)
-    res = fit(obs, cfg)
+    res = fit(obs, cfg, bootstrap=int(cfg.get("bootstrap_samples", 0)))
     wid = window_id(seasons)
     rows = res["players"].copy()
+    for c in ("o_se", "d_se", "rapm_se"):
+        if c not in rows:
+            rows[c] = np.nan
+    rows = rows[["player_id", "off_poss", "def_poss", "o_rapm", "d_rapm", "rapm", "o_se", "d_se", "rapm_se"]]
     rows.insert(0, "window_id", wid)
     for k, v in (("alpha", res["alpha"]), ("n_obs", res["n_obs"]), ("home_points_per100", res["home_points_per100"]),
                  ("credit_method", cfg["credit"]), ("exclude_end_of_period_heave", bool(cfg["exclude_end_of_period_heave"])),
@@ -245,9 +270,11 @@ def build(con, seasons: list[tuple[int, str]], cfg: dict | None = None) -> dict:
     con.execute("BEGIN")
     try:
         con.execute(f"CREATE TABLE IF NOT EXISTS marts.player_rapm {DDL}")
+        for c in ("o_se", "d_se", "rapm_se"):   # tables built before the standard errors existed
+            con.execute(f"ALTER TABLE marts.player_rapm ADD COLUMN IF NOT EXISTS {c} DOUBLE")
         con.execute("DELETE FROM marts.player_rapm WHERE window_id = ?", [wid])
         con.register("rapm_rows", rows)
-        con.execute("INSERT INTO marts.player_rapm SELECT * FROM rapm_rows")
+        con.execute("INSERT INTO marts.player_rapm BY NAME SELECT * FROM rapm_rows")
         con.unregister("rapm_rows")
         con.execute("COMMIT")
     except Exception:
@@ -265,7 +292,8 @@ def write_report(con, path: Path, seasons: list[tuple[int, str]], cfg: dict | No
     cfg = cfg or load_rules()["rapm"]
     names = dict(con.execute("SELECT player_id, name FROM core.players").fetchall())
     obs = load_possessions(con, seasons, cfg)
-    res = fit(obs, cfg)
+    n_boot = int(cfg.get("bootstrap_samples", 0))
+    res = fit(obs, cfg, bootstrap=n_boot)
     cv, wid = res["cv"], window_id(seasons)
     half = split_half(obs, cfg, res["alpha"])
     variants = {}
@@ -288,6 +316,13 @@ def write_report(con, path: Path, seasons: list[tuple[int, str]], cfg: dict | No
     big["name"] = big["player_id"].map(names)
     top, bottom = big.nlargest(10, "rapm"), big.nsmallest(10, "rapm")
     best = cv["table"].loc[cv["table"]["alpha"] == cv["alpha"]].iloc[0]
+    se_note = []
+    if n_boot:
+        se_note = [f"Standard errors: bootstrap of whole games, {n_boot} resamples, same penalty. Players with {cfg['split_half_min_possessions']:,}+ possessions: "
+                   f"median standard error **{big['rapm_se'].median():.2f}** points per 100 (offense {big['o_se'].median():.2f}, defense {big['d_se'].median():.2f}); "
+                   f"**{int((big['rapm'].abs() > 2 * big['rapm_se']).sum())}** of {len(big)} players have a rating more than two standard errors from zero "
+                   f"({int((top['rapm'] > 2 * top['rapm_se']).sum())} of the top 10, {int((bottom['rapm'] < -2 * bottom['rapm_se']).sum())} of the bottom 10). "
+                   "Sampling noise only; the shrinkage bias of ridge is not in it.", ""]
     lines = [f"# RAPM prototype: {wid}", "",
              "Ridge regression on our own possessions (`metrics/rapm.py`). Numbers only. **Prototype**: `marts.player_rapm` waits for the owner's "
              "approval; every choice below is `rules.yaml` `rapm` and marked [待確認].", "",
@@ -296,6 +331,7 @@ def write_report(con, path: Path, seasons: list[tuple[int, str]], cfg: dict | No
              f"- Players with their own column: **{res['n_own']}**; pooled into the replacement column: {res['n_replacement']} "
              f"(fewer than {cfg['min_possessions_for_own_column']} possessions). Replacement player: offense {res['replacement_o']:+.2f}, defense {res['replacement_d']:+.2f} points per 100.",
              f"- League average: {res['intercept_per100']:.1f} points per 100 possessions; home court: **{res['home_points_per100']:+.2f}** points per 100.", "",
+             *se_note,
              "## Penalty (cross-validation grouped by game)", "",
              f"Folds: {cfg['cv_folds']}. Chosen alpha: **{cv['alpha']:,.0f}**; grid extended {cv['extensions']} time(s); best at the edge of the grid: {cv['at_edge']}. "
              f"Mean squared error {best['mean_mse']:.5f} (± {best['se_mse']:.5f}) against {cv['baseline_mse']:.5f} for predicting the mean: "
@@ -313,11 +349,12 @@ def write_report(con, path: Path, seasons: list[tuple[int, str]], cfg: dict | No
     if onoff:
         lines += ["", f"Correlation with the raw on/off net (`marts.player_onoff_season`, {onoff[0]} players): **{onoff[1]:.2f}**."]
     lines += ["", f"## Highest and lowest RAPM (players with {cfg['split_half_min_possessions']:,}+ possessions; points per 100)", "",
-              "| | player | RAPM | offense | defense | possessions |", "|---|---|---|---|---|---|"]
-    lines += [f"| top | {r.name} | {r.rapm:+.2f} | {r.o_rapm:+.2f} | {r.d_rapm:+.2f} | {r.poss:,} |" for r in top.itertuples()]
-    lines += [f"| bottom | {r.name} | {r.rapm:+.2f} | {r.o_rapm:+.2f} | {r.d_rapm:+.2f} | {r.poss:,} |" for r in bottom.itertuples()]
-    lines += ["", "Reading: ridge shrinks every player toward the average, so the spread is smaller than raw on/off; there are no standard errors "
-              "in this prototype. Interpret differences of a point or two between players as noise.", ""]
+              "| | player | RAPM | ± standard error | offense | defense | possessions |", "|---|---|---|---|---|---|---|"]
+    fmt = lambda r: f"{r.rapm_se:.2f}" if n_boot else "-"  # noqa: E731
+    lines += [f"| top | {r.name} | {r.rapm:+.2f} | {fmt(r)} | {r.o_rapm:+.2f} | {r.d_rapm:+.2f} | {r.poss:,} |" for r in top.itertuples()]
+    lines += [f"| bottom | {r.name} | {r.rapm:+.2f} | {fmt(r)} | {r.o_rapm:+.2f} | {r.d_rapm:+.2f} | {r.poss:,} |" for r in bottom.itertuples()]
+    lines += ["", "Reading: ridge shrinks every player toward the average, so the spread is smaller than raw on/off. "
+              "Differences between players that are smaller than their standard errors are noise.", ""]
     path.write_text(chr(10).join(lines), encoding="utf-8")
     return {"alpha": res["alpha"], "split_half_r": half["r_rapm"], "cv_improvement_pct": round(100 * (1 - best["mean_mse"] / cv["baseline_mse"]), 2)}
 

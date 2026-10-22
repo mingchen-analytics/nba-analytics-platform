@@ -125,6 +125,7 @@ rapm:
   alpha_grid_size: 13
   max_grid_extensions: 3
   seed: 20261022
+  bootstrap_samples: 50                 # resamples of whole games (with replacement) for the standard errors; 0 = none
   split_half_min_possessions: 1000      # players with at least this many possessions in BOTH halves enter the reliability
 
 dashboard:

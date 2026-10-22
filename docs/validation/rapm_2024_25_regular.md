@@ -6,6 +6,8 @@ Ridge regression on our own possessions (`metrics/rapm.py`). Numbers only. **Pro
 - Players with their own column: **472**; pooled into the replacement column: 94 (fewer than 500 possessions). Replacement player: offense -2.09, defense -0.39 points per 100.
 - League average: 112.7 points per 100 possessions; home court: **+1.56** points per 100.
 
+Standard errors: bootstrap of whole games, 50 resamples, same penalty. Players with 1,000+ possessions: median standard error **1.22** points per 100 (offense 0.86, defense 0.86); **73** of 432 players have a rating more than two standard errors from zero (10 of the top 10, 10 of the bottom 10). Sampling noise only; the shrinkage bias of ridge is not in it.
+
 ## Penalty (cross-validation grouped by game)
 
 Folds: 5. Chosen alpha: **3,162**; grid extended 0 time(s); best at the edge of the grid: False. Mean squared error 1.42760 (± 0.00273) against 1.43042 for predicting the mean: **0.20 %** lower (small by nature: points in one possession are mostly luck; what matters is that the gain is real, larger than its standard error, and the best penalty lies inside the grid).
@@ -43,27 +45,27 @@ Correlation with the raw on/off net (`marts.player_onoff_season`, 381 players): 
 
 ## Highest and lowest RAPM (players with 1,000+ possessions; points per 100)
 
-| | player | RAPM | offense | defense | possessions |
-|---|---|---|---|---|---|
-| top | Shai Gilgeous-Alexander | +6.12 | +4.30 | +1.82 | 10,888 |
-| top | Nikola Jokić | +5.85 | +5.77 | +0.08 | 10,812 |
-| top | Dorian Finney-Smith | +5.70 | +3.47 | +2.23 | 7,257 |
-| top | Giannis Antetokounmpo | +5.34 | +3.64 | +1.70 | 9,397 |
-| top | Luka Dončić | +4.44 | +3.10 | +1.34 | 7,241 |
-| top | Franz Wagner | +3.96 | +1.62 | +2.34 | 8,066 |
-| top | Christian Braun | +3.95 | +3.62 | +0.34 | 11,047 |
-| top | Ivica Zubac | +3.88 | +1.31 | +2.57 | 10,583 |
-| top | Al Horford | +3.86 | +2.09 | +1.77 | 6,622 |
-| top | Pascal Siakam | +3.85 | +0.54 | +3.31 | 10,521 |
-| bottom | Nick Smith Jr. | -4.68 | -3.05 | -1.63 | 5,322 |
-| bottom | Bub Carrington | -4.67 | -2.91 | -1.75 | 10,174 |
-| bottom | Alex Len | -4.36 | -1.90 | -2.46 | 1,321 |
-| bottom | Tidjane Salaün | -4.03 | -4.05 | +0.02 | 4,740 |
-| bottom | Yves Missi | -3.87 | -1.57 | -2.30 | 7,895 |
-| bottom | Cody Williams | -3.73 | -2.50 | -1.23 | 4,379 |
-| bottom | Nic Claxton | -3.62 | -3.13 | -0.49 | 7,430 |
-| bottom | Keyonte George | -3.49 | -0.07 | -3.43 | 8,626 |
-| bottom | Jordan Hawkins | -3.47 | -1.93 | -1.55 | 5,275 |
-| bottom | Kyle Kuzma | -3.42 | -2.66 | -0.76 | 8,107 |
+| | player | RAPM | ± standard error | offense | defense | possessions |
+|---|---|---|---|---|---|---|
+| top | Shai Gilgeous-Alexander | +6.12 | 1.06 | +4.30 | +1.82 | 10,888 |
+| top | Nikola Jokić | +5.85 | 1.25 | +5.77 | +0.08 | 10,812 |
+| top | Dorian Finney-Smith | +5.70 | 1.46 | +3.47 | +2.23 | 7,257 |
+| top | Giannis Antetokounmpo | +5.34 | 1.27 | +3.64 | +1.70 | 9,397 |
+| top | Luka Dončić | +4.44 | 1.36 | +3.10 | +1.34 | 7,241 |
+| top | Franz Wagner | +3.96 | 1.24 | +1.62 | +2.34 | 8,066 |
+| top | Christian Braun | +3.95 | 1.42 | +3.62 | +0.34 | 11,047 |
+| top | Ivica Zubac | +3.88 | 1.55 | +1.31 | +2.57 | 10,583 |
+| top | Al Horford | +3.86 | 1.28 | +2.09 | +1.77 | 6,622 |
+| top | Pascal Siakam | +3.85 | 1.06 | +0.54 | +3.31 | 10,521 |
+| bottom | Nick Smith Jr. | -4.68 | 1.16 | -3.05 | -1.63 | 5,322 |
+| bottom | Bub Carrington | -4.67 | 1.06 | -2.91 | -1.75 | 10,174 |
+| bottom | Alex Len | -4.36 | 1.14 | -1.90 | -2.46 | 1,321 |
+| bottom | Tidjane Salaün | -4.03 | 1.35 | -4.05 | +0.02 | 4,740 |
+| bottom | Yves Missi | -3.87 | 1.40 | -1.57 | -2.30 | 7,895 |
+| bottom | Cody Williams | -3.73 | 1.75 | -2.50 | -1.23 | 4,379 |
+| bottom | Nic Claxton | -3.62 | 1.49 | -3.13 | -0.49 | 7,430 |
+| bottom | Keyonte George | -3.49 | 1.11 | -0.07 | -3.43 | 8,626 |
+| bottom | Jordan Hawkins | -3.47 | 1.36 | -1.93 | -1.55 | 5,275 |
+| bottom | Kyle Kuzma | -3.42 | 1.44 | -2.66 | -0.76 | 8,107 |
 
-Reading: ridge shrinks every player toward the average, so the spread is smaller than raw on/off; there are no standard errors in this prototype. Interpret differences of a point or two between players as noise.
+Reading: ridge shrinks every player toward the average, so the spread is smaller than raw on/off. Differences between players that are smaller than their standard errors are noise.
