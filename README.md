@@ -4,7 +4,7 @@
 
 A personal NBA data platform built from raw play-by-play: a validated event database for
 **1996-97 → 2025-26**, my own **stint and possession logic** checked game by game against an
-independent reference, on/off and lineup tables built on those possessions, and a **Streamlit dashboard** on top. RAPM is next.
+independent reference, on/off, lineup and RAPM tables built on those possessions, and a **Streamlit dashboard** on top.
 Portfolio project by Ming Chen (Wake Forest MSBA, sports analytics).
 
 ## Why
@@ -30,7 +30,7 @@ tested, and versioned, so each number can be explained and reproduced.
   pbpstats) and `custom` (my own choices), with the rule "copy first, then deviate, one documented
   change at a time".
 - **Fail loudly**: an unmapped player, team or event type stops the load; data is never silently
-  dropped or "fixed" to make a check pass. 290 automated tests.
+  dropped or "fixed" to make a check pass. 324 automated tests, run by CI on every push.
 
 ## Possession results
 
@@ -44,17 +44,21 @@ Share of team-games whose possession count equals pbpstats' (check 8), profile `
 
 Hard check on every season (all 60 pass): each team's possession points plus free throws outside
 possessions equal the final score. Per-season table: `docs/validation/possession_summary.md`.
-One season (2017-18) is the outlier at 70 %: the source inserts late-added events out of order early
-in that season (analysis in `docs/decisions.md`, 2026-10-22).
+One season (2017-18) is the outlier at 70 %: the source puts events out of order early in that season. Of its 159
+possessions with a missing end, 92 sit next to events the source added late; for 15 more the official play-by-play
+showed a rebound stamped after the event that follows it. I corrected those 15 (order and time, each checked
+against the official event numbers; 142 remain), and the corrected sequences match pbpstats possession by possession
+(analysis in `docs/decisions.md`, 2026-10-22).
 
 ## Dashboard
 
-Ten read-only Streamlit pages (`app/`): data health, reference data, games (official box score and
+Twelve read-only Streamlit pages (`app/`): data health, reference data, games (official box score and
 score-margin chart), players (leaderboard and game log), teams, shooting (zone frequency and accuracy
-with league percentiles, shot chart), tracking / hustle, and from our own possessions: team efficiency
-(with end-of-period-heave and garbage-time switches), on/off and lineups (five-man and pairs). Layer 3
-(RAPM) is specified in `docs/dashboard_spec.md`. Every number is labelled by where it comes from (official
-NBA.com value, counted from my play-by-play, or model).
+with league percentiles, shot chart), tracking / hustle (season and game by game), and from my own possessions:
+team efficiency (four factors, with end-of-period-heave and garbage-time switches), on/off, lineups (five-man
+and pairs), matchups (who guarded a player in a series, game by game) and RAPM (ridge, with bootstrap standard
+errors; a prototype). Every number is labelled by where it comes from (official NBA.com value, counted from my
+play-by-play, or model).
 
 | | |
 |---|---|
@@ -204,9 +208,11 @@ if anything fails. Install it once per clone: `git config core.hooksPath scripts
 - [x] Stints and possessions for all 60 season files (`pbpstats_compat` profile)
 - [x] Dashboard layer 1: games, players, teams, shooting, tracking
 - [x] On/off, five-man lineups, two-man pairs and team efficiency, with dashboard pages
-- [ ] `custom` profile: first documented deviations; choose how to credit a possession when a substitution
-      happens between free throws (option A vs the pbpstats hybrid already compared: `docs/validation/onoff_credit_methods.md`)
-- [ ] RAPM (ridge, penalty chosen by game-grouped cross-validation)
-- [ ] Playoff Matchup Adjustment Tracker and video tracking, linked by shared IDs
+- [x] Substitution credit decided: the pbpstats hybrid (option A moves 7.1 % of points: `docs/validation/onoff_credit_methods.md`)
+- [x] RAPM prototype: ridge, penalty by game-grouped cross-validation, bootstrap standard errors (split-half reliability
+      0.37 for one season, 0.57 for three: `docs/validation/rapm_*.md`)
+- [x] Matchup table from NBA.com's matchup data, joined by shared IDs, with a page
+- [ ] `custom` profile: first documented deviations (for example ordering rows by the official event numbers)
+- [ ] RAPM beyond the prototype (more windows, priors), the Playoff Matchup Adjustment Tracker's own views and video tracking, linked by shared IDs
 
 More: `docs/README.md` is the map of the documentation.
