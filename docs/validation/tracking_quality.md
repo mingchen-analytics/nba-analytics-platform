@@ -38,10 +38,22 @@ Reading the table: miles / 36 min and speed are stable from 2013-14 to 2024-25 a
 
 | season | type | team | flagged players | share of the flagged players' minutes in the team's tracked minutes |
 |---|---|---|---|---|
+| 2025-26 | regular | NYK | 9 | 75 % |
 | 2025-26 | regular | DAL | 9 | 66 % |
 | 2025-26 | regular | MIL | 9 | 66 % |
-| 2025-26 | regular | NYK | 9 | 75 % |
 | 2025-26 | regular | POR | 9 | 74 % |
 | 2025-26 | regular | WAS | 5 | 27 % |
 | 2025-26 | regular | ATL | 2 | 15 % |
 | 2025-26 | regular | PHX | 1 | 2 % |
+
+## Single games (marts.player_game_tracking)
+
+Games flagged `movement_suspect` (a player with 300+ seconds above the per-game limit in rules.yaml): **3**.
+
+| game | date | home | away | players | max speed (mph) | median speed, 300+ s (mph) |
+|---|---|---|---|---|---|---|
+| `0022500125` | 2025-10-28 | MIL | NYK | 20 | 272.7 | 150.5 |
+| `0022500183` | 2025-11-08 | WAS | DAL | 22 | 149.1 | 62.2 |
+| `0022500238` | 2025-11-16 | DAL | POR | 21 | 338.6 | 254.1 |
+
+Flagged season rows with single-game boxes: **43**. NBA.com's season average speed for them: 5.75-22.58 mph; recomputed from their single-game boxes without the flagged games (distance / hours played): **3.93-4.75 mph**.

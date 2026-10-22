@@ -121,7 +121,8 @@ def test_tracking_page_renders_every_category_and_scale():
     at = AppTest.from_file(str(TRACKING_PAGE), default_timeout=120).run()
     assert not at.exception, at.exception
     assert at.title[0].value == "Tracking"
-    assert len(at.dataframe) == 2 and len(at.dataframe[0].value) > 50  # leaderboard, player history
+    # leaderboard, player history, and the game-by-game table when single-game boxes exist for the season
+    assert len(at.dataframe) in (2, 3) and len(at.dataframe[0].value) > 50
     for group in at.selectbox[1].options:  # every category
         at.selectbox[1].select(group).run()
         assert not at.exception, (group, at.exception)

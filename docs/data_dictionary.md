@@ -319,6 +319,18 @@ Four factors, offense `o_` and defense `d_` (the opponents' offense), from our o
 rebounds included), `drb_against` (possessions ending in a defensive rebound); rates `efg`, `tov_pct`, `orb_pct`, `ft_rate`. FGA equal
 NBA.com's for 1,331 of 1,372 team-seasons; eFG% for BOS 2023-24 and GSW 2015-16 equal the official values.
 
+## marts.player_game_tracking
+
+NBA.com single-game tracking and hustle boxes, one row per player and game (`marts/tracking_games.py`), **PRIMARY KEY**
+`(game_id, player_id)`; every number is NBA.com's (**official**). Coverage follows the downloads: every playoff season from
+2013-14 and the regular seasons fetched so far (`reference.nba_box_tracking`, `reference.nba_box_hustle`). Rows of players who
+did not play (0 seconds, "DNP") are left out and counted (`dnp_rows`). `has_tracking`, `has_hustle` say which box the row has;
+`movement_suspect` flags a whole **game** when a player with at least `dashboard.tracking_game_min_secs` seconds averages more than
+`dashboard.tracking_game_max_plausible_speed_mph` (3 games, all 2025-26 regular season). Columns: `secs_played`, `distance` (miles),
+`speed` (mph), `touches`, `passes`, `assists`, `secondary_assists`, `free_throw_assists`, `rebound_chances_*`, `contested_` /
+`uncontested_field_goals_made` / `_attempted`, `defended_at_rim_field_goals_*`, `contested_shots` (+ `2pt`, `3pt`), `deflections`,
+`charges_drawn`, `screen_assists`, `screen_assist_points`, `loose_balls_recovered_total`, `box_outs`.
+
 ## core.possessions, core.possession_stint_segments (Claude-written, owner-reviewed)
 
 Built per season by `python -m nba_platform.build_core --season-end-year Y --season-type T --step possessions [--profile pbpstats_compat|custom]`

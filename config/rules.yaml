@@ -117,6 +117,11 @@ dashboard:
   # 2025-26 regular season has 44 players above 5.5 (up to 22.6 mph; MIL, DAL, NYK, POR), a source defect.
   tracking_max_plausible_avg_speed_mph: 5.5
   tracking_suspect_min_minutes: 100     # smaller samples can legitimately average above the limit; not flagged
+  # Single games (marts.player_game_tracking): a game is flagged when a player with at least this many seconds
+  # runs faster on average than this. Checked 2026-10-22: the largest value with 300+ s over 2013-14 -> 2024-25 is 5.93 mph;
+  # three 2025-26 games have 60-338 mph and explain the season-level defect above.
+  tracking_game_max_plausible_speed_mph: 6.0
+  tracking_game_min_secs: 300
 
 validation:
   # Not basketball rules: tolerances for validation reports.

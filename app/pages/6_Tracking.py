@@ -113,8 +113,8 @@ def main() -> None:
                               AND season_end_year = ? AND season_type = ?""", (year, season_type))["n"].iloc[0])
         if n_flag:
             st.warning(f"{n_flag} player-seasons in {season_label(year)} ({season_type}) have implausible movement values from NBA.com "
-                       "(average speed above the plausible maximum). Other players on the same teams may be affected too. "
-                       "See `docs/validation/tracking_quality.md`.")
+                       "(average speed above the plausible maximum). The single-game boxes trace them to a few games with "
+                       "impossible speeds (Game by game section below). See `docs/validation/tracking_quality.md`.")
             hide_flagged = st.checkbox("Hide the flagged player-seasons", value=True)
     flag_col = "s.movement_suspect AS suspect, " if has_flag and group == "Movement" else ""
     flag_filter = " AND NOT coalesce(s.movement_suspect, FALSE)" if hide_flagged else ""
@@ -141,6 +141,39 @@ def main() -> None:
     history.insert(0, "season", history.pop("season_end_year").map(season_label))
     cfg["games"] = st.column_config.NumberColumn("GP", format="%d")
     st.dataframe(history, hide_index=True, width="stretch", column_config=cfg)
+    game_by_game(int(player_id), year, season_type)
+
+
+def game_by_game(player_id: int, year: int, season_type: str) -> None:
+    """NBA.com single-game tracking and hustle boxes of one player and season (marts.player_game_tracking)."""
+    if not bool(query("""SELECT count(*) AS n FROM information_schema.tables WHERE table_schema = 'marts'
+                         AND table_name = 'player_game_tracking'""")["n"].iloc[0]):
+        return
+    st.header("Game by game")
+    games = query("""
+        SELECT g.game_date, CASE WHEN m.team_id = g.home_team_id THEN 'vs ' ELSE '@ ' END || o.abbreviation AS opponent,
+               m.secs_played / 60 AS minutes, m.distance, m.speed, m.touches, m.passes, m.assists, m.contested_shots,
+               m.deflections, m.loose_balls_recovered_total AS loose_balls, m.box_outs, m.movement_suspect AS suspect
+        FROM marts.player_game_tracking m JOIN core.games g USING (game_id)
+        JOIN core.teams o ON o.team_id = CASE WHEN m.team_id = g.home_team_id THEN g.away_team_id ELSE g.home_team_id END
+        WHERE m.player_id = ? AND m.season_end_year = ? AND m.season_type = ? ORDER BY g.game_date""", (player_id, year, season_type))
+    if games.empty:
+        st.caption(f"No single-game boxes for this player in {season_label(year)} {season_type} (downloaded: every playoff season "
+                   "from 2013-14 and the most recent regular seasons).")
+        return
+    n_bad = int(games["suspect"].sum())
+    st.caption("NBA.com single-game tracking and hustle boxes (**official**). Hustle numbers exist from 2015-16.")
+    if n_bad:
+        st.warning(f"{n_bad} of these games carry impossible movement values for nearly every player (flagged per game, "
+                   "`docs/validation/tracking_quality.md`); their distance and speed are hidden.")
+        games.loc[games["suspect"], ["distance", "speed"]] = None
+    games["game_date"] = games["game_date"].astype(str).str[:10]
+    num = lambda title, fmt="%d": st.column_config.NumberColumn(title, format=fmt)  # noqa: E731
+    st.dataframe(games, hide_index=True, width="stretch", column_config={
+        "minutes": num("MIN", "%.1f"), "distance": num("miles", "%.2f"), "speed": num("mph", "%.2f"), "touches": num("touches"),
+        "passes": num("passes"), "assists": num("AST"), "contested_shots": num("contested"), "deflections": num("deflections"),
+        "loose_balls": num("loose balls"), "box_outs": num("box outs"),
+        "suspect": st.column_config.CheckboxColumn("suspect", help="flagged game: impossible movement values from NBA.com")})
 
 
 main()

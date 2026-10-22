@@ -1056,3 +1056,20 @@ the official box score has them, but mixing it with our possessions has to be la
   boundaries / (chance boundaries + the opponents' possession-ending defensive rebounds), which counts team rebounds on both
   sides (so it runs slightly above box-score ORB%); FT rate = made free throws inside possessions / FGA. Our FGA equal NBA.com's for
   1,331 of 1,372 team-seasons. **[待確認]**: these definitions (in particular team rebounds in ORB% and made, not attempted, free throws).
+
+## 2026-10-22 — Single-game tracking table; the 2025-26 speed defect is three games
+
+New `marts.player_game_tracking` (NBA.com single-game tracking + hustle boxes, one row per player and game; part of the
+approved layer-2 work) and a "Game by game" section on the Tracking page.
+- **Cause of the 2025-26 season-level defect found**: three regular-season games carry average speeds of 60-338 mph for
+  nearly every player: `0022500125` (2025-10-28, NYK at MIL), `0022500183` (2025-11-08, DAL at WAS), `0022500238` (2025-11-16,
+  POR at DAL). NBA.com's season numbers average them in. Recomputed from the single-game boxes without those games (distance / hours
+  played), the 43 flagged player-seasons that have single-game boxes run at 3.93-4.75 mph, i.e. normal. This also explains the
+  teams (MIL, NYK, WAS, DAL, POR) and the traded players.
+- Flag per **game**, never delete: a game is `movement_suspect` when a player with 300+ seconds averages above 6.0 mph
+  (`rules.yaml` `dashboard.tracking_game_*`; the largest value in 2013-14 → 2024-25 is 5.93 mph). The page hides those games'
+  distance and speed. **[待確認]** the 6.0 mph / 300 s thresholds.
+- Not done: NBA.com's season numbers are not replaced by recomputed ones (they stay official and flagged); a recomputed
+  "season without flagged games" column would be ours, not NBA.com's, and needs the owner's decision.
+- Rows of players who did not play (0 seconds; 26,949 "DNP" rows) are left out and counted: 8 such players never played and are
+  not in `core.players`, which the hard check caught.
