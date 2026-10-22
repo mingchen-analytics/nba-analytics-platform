@@ -1,0 +1,34 @@
+# Single-game box scores (NBA.com, reference)
+
+Loaded from cached raw JSON by `nba_platform.reference.boxscores`. Numbers only.
+
+| table | files | empty shells | games | player rows |
+|---|---|---|---|---|
+| `reference.nba_box_tracking` | 5,483 | 0 | 5,483 | 144,470 |
+| `reference.nba_box_hustle` | 5,313 | 0 | 5,313 | 107,261 |
+
+## Tracking-box minutes (to the second) vs our play-by-play minutes
+
+Players with time on court in either source. A third, independent check of on-court time.
+
+| season | type | games | player-games | in core.games | \|diff\| ≤ 10 s | ≤ 60 s | > 60 s | only in box | only in PBP |
+|---|---|---|---|---|---|---|---|---|---|
+| 2025-26 | playoffs | 85 | 1,921 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2024-25 | playoffs | 83 | 1,783 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2023-24 | playoffs | 82 | 1,684 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2022-23 | playoffs | 84 | 1,728 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2021-22 | playoffs | 87 | 1,891 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2020-21 | playoffs | 85 | 1,864 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2019-20 | playoffs | 83 | 1,692 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2018-19 | playoffs | 82 | 1,761 | 100% | 100.0% | 100.0% | 0.0% | 0 | 1 |
+| 2017-18 | playoffs | 82 | 1,729 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2016-17 | playoffs | 79 | 1,737 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2015-16 | playoffs | 86 | 1,899 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2014-15 | playoffs | 81 | 1,651 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+| 2013-14 | playoffs | 89 | 1,904 | 100% | 100.0% | 100.0% | 0.0% | 3 | 0 |
+| 2025-26 | regular | 1,230 | 26,649 | 100% | 100.0% | 100.0% | 0.0% | 0 | 1 |
+| 2024-25 | regular | 1,230 | 26,303 | 100% | 100.0% | 100.0% | 0.0% | 0 | 1 |
+| 2023-24 | regular | 1,230 | 26,399 | 100% | 100.0% | 100.0% | 0.0% | 0 | 6 |
+| 2022-23 | regular | 705 | 14,935 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
+
+Box-score games not in `core.games`: 0.

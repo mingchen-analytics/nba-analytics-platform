@@ -1,0 +1,154 @@
+# Possession rules: every tunable threshold and definition lives here (CLAUDE.md).
+# Code must read these values; nothing is hard-coded.
+# Bump rules_version whenever a value changes; every possession row records it.
+
+rules_version: "2026-10-21.6"
+
+end_of_period:
+  # pbpstats approach: a possession that starts with <= this many seconds left in the
+  # period AND scores 0 points is excluded from efficiency. Possessions are never deleted;
+  # they carry the flag is_end_of_period_heave.
+  end_of_period_threshold_secs: 2
+  # Owner 2026-10-21: compare the EXACT time left (the source has tenths from 2016-17). pbpstats
+  # uses whole seconds (2.4 s counts as 2 s), so from 2016-17 about 500-560 zero-point possessions
+  # per season that start with 2-3 s left are kept by us and excluded by pbpstats: a documented,
+  # deliberate difference (docs/decisions.md 2026-10-21).
+  clock_precision: exact
+
+substitution_credit:
+  # OPEN, owner has not decided. Data must support all three:
+  #   A = whole possession credited to the lineup on court when it ends
+  #   B = FT points credited to the lineup on court at the time of the foul
+  #   C = Cleaning the Glass chance split
+  method: null
+
+chances:
+  # Events that start a new chance inside the same possession (num_chances per possession).
+  # Owner 2026-10-21: offensive rebounds only in the first version. Other boundaries (if CTG's
+  # published definition has them) would be added in the custom profile after checking it.
+  boundaries:
+    - offensive_rebound
+
+stints:
+  # Owner 2026-10-21 (CLAUDE.md "lineups on court").
+  merge_consecutive_substitutions_same_second: true   # only when no other event is between them
+  new_stint_each_period: true
+  player_order: source
+  period_length_secs: {regulation: 720, overtime: 300}
+
+# Decided by the owner 2026-10-21 (CLAUDE.md "Possession rules").
+team_rebound_after_nonfinal_ft: ignore      # not a rebound, not a chance; the row is kept
+
+jump_ball:
+  # A jump ball does not end a possession; it changes only if the other team gains control.
+  possession_change: other_team_gains_control
+  control_team_from: next_event_with_team   # not the player1/2/3 roles (they differ by era)
+  new_chance: false
+
+free_throws_with_ball_retained:
+  # Owner 2026-10-21, both profiles = pbpstats' reference data: the free throws and the retained
+  # ball are ONE possession (the last FT does not end it). Kinds are free-throw kinds
+  # (core/free_throws.py) or, for regular free throws, the kind of the linked foul
+  # (away_from_play = foul code 6, inbound = 5).
+  new_possession_after_last_ft: []
+  same_possession: [flagrant, clear_path, transition_take, away_from_play, inbound]
+
+turnovers:
+  # Source rows with turnover action type 0 ("No Turnover" in the text) carry a credited steal:
+  # they are turnovers and end the possession (as pbpstats; 2026-10-21, Claude's reading of the
+  # data, to be confirmed by the owner [待確認]).
+  no_turnover_rows_end_possession: true
+
+free_throws_between_possessions:
+  # Option (a) in both profiles (owner 2026-10-21): the made last FT ends the possession even when
+  # the other team fouls again at the same second (pbpstats keeps the possession open there).
+  made_last_ft_ends_even_if_other_team_fouls_at_same_second: true
+  # Non-technical FT for a second foul in the same dead ball after the possession ended.
+  treat_like_technical_ft: true             # no start/end; flag is_between_possessions_ft
+  exclude_from_lineup_efficiency: true
+  exclude_from_rapm: true
+
+after_timeout:
+  # is_after_timeout: any timeout event (either team or official) in the dead ball between the
+  # previous possession's end and this possession's first event; the calling team is stored.
+  window: dead_ball_between_possessions
+  any_team: true
+
+event_order: source        # no reordering in code; confirmed order errors go to corrections
+
+technical_ft:
+  # Technical FTs do not start or end a possession; they count toward team points.
+  exclude_from_lineup_efficiency: true
+  exclude_from_rapm: true
+
+garbage_time:
+  # Stored as the flag is_garbage_time only; exclusion is decided when building RAPM.
+  definition: cleaning_the_glass
+  # Checked by the owner against CTG's official definition (2026-10-18): 4th quarter only;
+  # margin >= 25 with 12-9 min left, >= 20 with 9-6, >= 10 with <= 6; at most 2 of the
+  # game's starters on the floor combined; retroactive (see below).
+  # Boundaries: exactly 9:00 / 6:00 left fall in the lower-threshold band (secs_remaining_min
+  # is exclusive except for 0). Confirmed by the owner 2026-10-21.
+  periods: [4]
+  margin_thresholds:            # 4th-quarter seconds remaining -> minimum score margin
+    - {secs_remaining_max: 720, secs_remaining_min: 540, min_margin: 25}
+    - {secs_remaining_max: 540, secs_remaining_min: 360, min_margin: 20}
+    - {secs_remaining_max: 360, secs_remaining_min: 0,   min_margin: 10}
+  max_combined_starters_on_court: 2   # starters = lineup on the game's first event
+  # Confirmed by owner 2026-10-17 (CTG official definition): garbage time is assigned
+  # retroactively. A possession counts only if the condition holds from it through the
+  # end of the game; if the margin falls back below the threshold, that stretch does not
+  # count, and counting restarts only when the margin opens up again.
+  retroactive_until_game_end: true
+
+analysis:
+  # Not rules: parameters for exploratory reports (overnight plan step 4).
+  # End-of-period thresholds to compare (seconds left in the period at possession start).
+  end_of_period_thresholds_to_compare: [2, 3, 5]
+
+dashboard:
+  # Not basketball rules: display thresholds for the shooting marts (marts/shot_zones.py).
+  # League percentiles are only computed among players with at least this many field-goal
+  # attempts in the season (and type); a zone's accuracy percentile also needs the zone minimum.
+  shot_percentile_min_season_fga: 100
+  shot_percentile_min_zone_fga: 20
+
+validation:
+  # Not basketball rules: tolerances for validation reports.
+  # Check 5 (PBP minutes vs box score). Box score minutes are whole numbers in the
+  # LeagueGameLog, so up to 1 minute is rounding; above `large_diff_minutes` is listed.
+  minutes_rounding_tolerance: 1.0
+  minutes_large_diff: 5.0
+  # Shot data quality (docs/validation/shot_quality.md). Flags only; shots are never changed.
+  shot_quality:
+    # A season where more than this share of shots sits exactly at (0, 0) uses (0, 0) as a
+    # placeholder for close shots: those shots get flag `xy_zero_placeholder`.
+    max_share_xy_zero: 0.05
+    # Seasons Sports Reference warns about (location / shot type): every shot gets flag
+    # `early_season_location_suspect`.
+    suspect_season_end_years: [1997, 1998, 1999, 2000]
+
+profiles:
+  # "Copy first, then deviate" (CLAUDE.md, owner 2026-10-18). load_rules(profile=...) applies
+  # a profile on top of the shared values above (nested keys are merged).
+  pbpstats_compat:
+    # Baseline matching pbpstats as closely as possible.
+    substitution_credit:
+      method: pbpstats_hybrid
+      possessions_to: lineup_at_possession_end
+      free_throw_points_to: lineup_at_foul
+    technical_ft:
+      # Checked in pbpstats' source 2026-10-21 (docs/decisions.md): a made technical FT's points
+      # go into both lineups' plus-minus / opponent points, credited to the players on the floor
+      # at the time of the foul (FreeThrow.event_for_efficiency_stats); a technical FT does not
+      # end a possession (is_end_ft only matches "1 of 1 / 2 of 2 / 3 of 3"; inferred).
+      exclude_from_lineup_efficiency: false
+      exclude_from_rapm: false
+      credited_to: lineup_at_foul
+  custom:
+    # The owner's adjustments; the substitution question stays open here.
+    substitution_credit:
+      method: null
+    technical_ft:
+      exclude_from_lineup_efficiency: true
+      exclude_from_rapm: true

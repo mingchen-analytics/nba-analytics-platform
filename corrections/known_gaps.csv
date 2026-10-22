@@ -1,0 +1,3 @@
+game_id,season_end_year,season_type,issue,reason,added_on
+0042400231,2025,playoffs,pbp_missing,"ramirobentes pbp_playoffs_2025 lacks this game; it is in the nba_api box scores and in pbpstats. Game row built from the box score.",2026-10-18
+0022500029,2026,regular,source_score_conflict,"one made free throw (shot_pts = 1) does not change the running score; event points 115 vs final home score 114",2026-10-18

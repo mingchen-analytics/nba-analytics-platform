@@ -1,0 +1,27 @@
+# Data: raw, third-party, and the database never go into git (CLAUDE.md rule 5).
+# Exception: data/raw/manifest.csv (our own metadata: url, download time, sha256).
+/data/*
+!/data/raw/
+/data/raw/*
+!/data/raw/manifest.csv
+*.duckdb
+*.duckdb.wal
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Per-season validation details quote source rows; keep them local (plan 2026-10-17)
+docs/validation/details/
+
+# Batch / run logs (local only)
+logs/

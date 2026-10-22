@@ -1,0 +1,9 @@
+file,game_id,event_num,n_rows,msg_type,act_type,all_columns_identical,differing_columns
+pbp_regular_2001.parquet,0020000409,435,2,6,14,False,total_fta player_ft shot_pts_home
+pbp_regular_2003.parquet,0020200954,472,2,6,14,False,player_ft shot_pts_away
+pbp_regular_2004.parquet,0020300970,318,2,6,2,False,player_ft poss_home
+pbp_regular_2012.parquet,0021100220,540,2,6,1,False,player_ft shot_pts_home poss_home
+pbp_regular_2013.parquet,0021200299,253,2,6,2,False,player_ft shot_pts_home poss_home
+pbp_regular_2013.parquet,0021200758,207,2,6,3,False,player_ft shot_pts_away poss_away
+pbp_regular_2018.parquet,0021701140,640,2,6,1,False,player_ft shot_pts_home poss_home
+pbp_regular_2020.parquet,0021900622,454,2,6,2,False,player_ft poss_away
