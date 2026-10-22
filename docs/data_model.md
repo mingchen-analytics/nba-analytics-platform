@@ -89,6 +89,7 @@ erDiagram
 | `marts.pair_stats` | `(season_end_year, season_type, team_id, player_a, player_b)` **PRIMARY KEY** | same as above |
 | `marts.team_efficiency_season` | `(season_end_year, season_type, team_id)` **PRIMARY KEY** | `core.possessions`, `core.events`, `core.games` |
 | `marts.player_game_tracking` | `(game_id, player_id)` **PRIMARY KEY** | `reference.nba_box_tracking`, `reference.nba_box_hustle`, `core.games`, `core.players` |
+| `marts.player_rapm` (prototype) | `(window_id, player_id)` **PRIMARY KEY** | `core.possessions`, `core.possession_stint_segments`, `core.stints`, `core.games` |
 
 ## Staging and validation
 

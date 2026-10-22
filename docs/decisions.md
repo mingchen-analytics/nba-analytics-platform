@@ -1073,3 +1073,22 @@ approved layer-2 work) and a "Game by game" section on the Tracking page.
   "season without flagged games" column would be ours, not NBA.com's, and needs the owner's decision.
 - Rows of players who did not play (0 seconds; 26,949 "DNP" rows) are left out and counted: 8 such players never played and are
   not in `core.players`, which the hard check caught.
+
+## 2026-10-22 — RAPM prototype (branch `rapm-prototype`; new table waits for the owner's approval)
+
+`metrics/rapm.py`, `marts.player_rapm`, settings in `rules.yaml` `rapm` (all **[待確認]**), reports
+`docs/validation/rapm_2024_25_regular.md` and `rapm_2022_23_2023_24_2024_25_regular.md`. Design (CLAUDE.md Phase 6):
+ridge regression (scikit-learn, scipy.sparse), one observation per possession, offense columns, defense columns, home court,
+a shared replacement column for players with fewer than 500 possessions, penalty by cross-validation grouped by game with a grid
+that is extended while the optimum lies on an edge (no fixed range). Choices that are the owner's:
+- **Crediting = option A (`end_lineup`)**: the whole possession, free throws included, goes to the lineup on the floor when it
+  ends, because a possession-level observation cannot split one possession over two lineups. Not the hybrid of on/off. The
+  open A/B/C question is unchanged. **[待確認]**
+- **Heaves and garbage time excluded** (config switches). Sensitivity (2024-25): RAPM correlates 0.986-0.988 with the variants that keep them;
+  the mean absolute change is 0.2 points per 100. **[待確認]**
+- Replacement threshold 500 possessions; 5 folds; seed 20261022. **[待確認]**
+Results: penalty 3,162 in both windows (inside the grid); cross-validated error 0.2 % below the mean-only baseline (small by nature,
+larger than its standard error); **split-half reliability 0.37 for one season and 0.57 for three seasons** (players with 1,000+ possessions in
+both halves), so single-season values are mostly noise; correlation with raw on/off 0.81 and 0.77; home court +1.6 and +2.1 points per 100.
+Top of 2024-25: Gilgeous-Alexander, Jokić, Finney-Smith, Antetokounmpo, Dončić; of the three seasons: Jokić, Gilgeous-Alexander, Antetokounmpo,
+Green, Wagner. No standard errors in this prototype (a bootstrap by game is the next step).

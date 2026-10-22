@@ -331,6 +331,16 @@ did not play (0 seconds, "DNP") are left out and counted (`dnp_rows`). `has_trac
 `uncontested_field_goals_made` / `_attempted`, `defended_at_rim_field_goals_*`, `contested_shots` (+ `2pt`, `3pt`), `deflections`,
 `charges_drawn`, `screen_assists`, `screen_assist_points`, `loose_balls_recovered_total`, `box_outs`.
 
+## marts.player_rapm (prototype, waiting for the owner's approval)
+
+Ridge RAPM per player and window (`metrics/rapm.py`), **PRIMARY KEY** `(window_id, player_id)`; `window_id` is for example
+`2024-25 regular` or `2022-23 + 2023-24 + 2024-25 regular`. One observation per possession (points of the offense); features: five
+offense columns, five defense columns, home court; penalty by cross-validation grouped by game. Columns: `off_poss`, `def_poss`
+(possessions on the floor), `o_rapm`, `d_rapm` (positive = good), `rapm` = sum, all in points per 100 possessions relative to
+an average player; `alpha`, `n_obs`, `home_points_per100`, and the choices that produced the row: `credit_method`
+(`end_lineup`), `exclude_end_of_period_heave`, `exclude_garbage_time`, `min_possessions_for_own_column`, `rules_version`,
+`rules_profile`. Players below the possession minimum share a replacement column and have no row. No standard errors.
+
 ## core.possessions, core.possession_stint_segments (Claude-written, owner-reviewed)
 
 Built per season by `python -m nba_platform.build_core --season-end-year Y --season-type T --step possessions [--profile pbpstats_compat|custom]`

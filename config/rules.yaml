@@ -106,6 +106,27 @@ analysis:
   # End-of-period thresholds to compare (seconds left in the period at possession start).
   end_of_period_thresholds_to_compare: [2, 3, 5]
 
+rapm:
+  # Not basketball rules in themselves, but choices that decide what RAPM means (metrics/rapm.py). All [待確認]
+  # until the owner confirms them; every fitted row records them.
+  # One observation = one possession; the whole possession (free throws included) is credited to the lineup on
+  # the floor when it ends (substitution option A), because a possession-level observation cannot split one
+  # possession across lineups. The A/B/C question itself stays open (docs/validation/onoff_credit_methods.md).
+  credit: end_lineup
+  exclude_end_of_period_heave: true     # pbpstats: a 0-point possession starting with <= 2 s left says little
+  exclude_garbage_time: true            # Cleaning the Glass definition (garbage_time above); decided at RAPM build time
+  # A player with fewer possessions than this (offense + defense, in the window) shares one "replacement" column.
+  min_possessions_for_own_column: 500
+  cv_folds: 5                           # cross-validation grouped by game (CLAUDE.md: no preset penalty range)
+  # The penalty grid starts at 10^2 ... 10^5 (13 values) and is extended by a decade on the side where the best
+  # value lies at the edge, up to this many times.
+  alpha_log10_start: 2.0
+  alpha_log10_stop: 5.0
+  alpha_grid_size: 13
+  max_grid_extensions: 3
+  seed: 20261022
+  split_half_min_possessions: 1000      # players with at least this many possessions in BOTH halves enter the reliability
+
 dashboard:
   # Not basketball rules: display thresholds for the shooting marts (marts/shot_zones.py).
   # League percentiles are only computed among players with at least this many field-goal
