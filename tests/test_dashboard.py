@@ -200,3 +200,32 @@ def test_layer2_pages_are_read_only_and_use_marts():
         text = page.read_text(encoding="utf-8").upper()
         assert "READ_ONLY=TRUE" in text and "CORE.POSSESSIONS" not in text and "CORE.STINTS" not in text
         assert not any(sql in text for sql in ("INSERT INTO", "UPDATE ", "DELETE FROM", "CREATE ", "DROP "))
+
+
+MATCHUPS_PAGE = APP.parent / "pages" / "10_Matchups.py"
+
+
+def test_matchups_page_renders_players_and_game_by_game_shares():
+    import duckdb
+    from streamlit.testing.v1 import AppTest
+
+    con = duckdb.connect(str(DB_PATH), read_only=True)
+    try:
+        built = con.execute("SELECT count(*) FROM information_schema.tables WHERE table_name = 'matchup_pairs'").fetchone()[0]
+    finally:
+        con.close()
+    if not built:
+        pytest.skip("marts.matchup_pairs not built")
+    at = AppTest.from_file(str(MATCHUPS_PAGE), default_timeout=120).run()
+    assert not at.exception, at.exception
+    assert at.title[0].value == "Matchups" and len(at.dataframe) == 2
+    assert len(at.dataframe[0].value) >= 3 and "share" in at.dataframe[0].value.columns
+    for season_type in ("regular", "playoffs"):
+        at.radio[0].set_value(season_type).run()
+        assert not at.exception, at.exception
+
+
+def test_matchups_page_is_read_only_and_uses_marts():
+    text = MATCHUPS_PAGE.read_text(encoding="utf-8").upper()
+    assert "READ_ONLY=TRUE" in text and "REFERENCE." not in text and "CORE.POSSESSIONS" not in text
+    assert not any(sql in text for sql in ("INSERT INTO", "UPDATE ", "DELETE FROM", "CREATE ", "DROP "))

@@ -331,6 +331,17 @@ did not play (0 seconds, "DNP") are left out and counted (`dnp_rows`). `has_trac
 `uncontested_field_goals_made` / `_attempted`, `defended_at_rim_field_goals_*`, `contested_shots` (+ `2pt`, `3pt`), `deflections`,
 `charges_drawn`, `screen_assists`, `screen_assist_points`, `loose_balls_recovered_total`, `box_outs`.
 
+## marts.matchup_pairs
+
+NBA.com matchup data, one row per defender and guarded player in a game (`marts/matchups.py`), 2017-18 → 2024-25, **PRIMARY KEY**
+`(game_id, defender_id, offender_id)`; every number is NBA.com's (**official**), typed from `reference.matchups` (all text there, game
+ids without their leading zeros: `21700001` becomes `0021700001`). `team_id` is the defender's team. `matchup_secs` the time he was matched
+with the offender, `partial_possessions`, `pct_defender_time` / `pct_offense_time` / `pct_both_on` (as given), `switches_on`; counts while
+matched: `player_pts` (the offender's), `team_pts`, `assists`, `potential_assists`, `turnovers`, `blocks`, `fgm`, `fga`, `fg3m`, `fg3a`,
+`help_blocks`, `help_fgm`, `help_fga`, `ftm`, `fta`, `shooting_fouls`. Blank values are NULL. Hard checks: games in `core.games`, players and
+teams known, the defender's team played the game, no duplicate keys, every value blank or a number. 1,886,689 rows, 10,076 games; 112 regular-season games
+have no matchup data (92 of them in 2019-20), listed in `docs/validation/matchups_coverage.md`; 87 rows name a player who is not in that game's box score.
+
 ## core.possessions, core.possession_stint_segments (Claude-written, owner-reviewed)
 
 Built per season by `python -m nba_platform.build_core --season-end-year Y --season-type T --step possessions [--profile pbpstats_compat|custom]`
