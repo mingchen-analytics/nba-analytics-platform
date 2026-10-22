@@ -59,7 +59,7 @@ Notes for layer 1:
 
 | Page | Questions | Content | Needs |
 |---|---|---|---|
-| Team efficiency | how good is the offense / defense | points per 100 possessions, four factors, with garbage-time and technical-FT switches | `core.possessions`, rules profiles |
+| Team efficiency | how good is the offense / defense | points per 100 possessions, four factors, with garbage-time and technical-FT switches | `marts.team_efficiency_season` (built, approved 2026-10-22; four factors not built) |
 | On/off | how does the team do with a player on vs off | on, off, difference per 100 possessions, possession counts next to every rate | `marts.player_onoff_season` (built, approved 2026-10-22) |
 | Lineups | which lineups work | five-man and two-man tables with minimum possessions | `marts.lineup_stats`, `marts.pair_stats` (built, approved 2026-10-22) |
 | Rule explorer | how much do the rules matter | the same player / lineup under `pbpstats_compat` vs `custom`, and substitution option A/B/C | the three credit methods (CLAUDE.md, open question) |

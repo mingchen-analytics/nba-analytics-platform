@@ -1041,3 +1041,13 @@ clock), i.e. the rebound exists in the official file but is not where the primar
   differs from the lineup at the end of the possession. Result: **548,053 points (7.1 % of possession points) move**;
   a player's net on-off changes by 1.19 points per 100 possessions on average (players with 1,000+ offensive possessions on), and
   by more than 1 point for about 40 % of them. The choice matters; it remains the owner's (pending_decisions item 4).
+
+## 2026-10-22 — Team efficiency table (approved)
+
+`marts.team_efficiency_season`: offense / defense points per 100 of our possessions per team and season, in three versions
+(all possessions; without end-of-period heaves; also without garbage time), so a page can switch. Technical and
+between-possession free throws are outside possessions and stored separately. Check against NBA.com's season box score:
+team points equal for 1,365 of 1,372 team-seasons; the 7 others are small source-score differences (1996-97 → 2012-13, 1-7
+points) and the 2024-25 playoff game `0042400231` that has a box score but no play-by-play (GSW -99, MIN -88). Sanity: GSW 2015-16
+net +10.9, BOS 2023-24 net +11.5 (without heaves). Four factors are not built yet (they need shot, rebound and turnover counts;
+the official box score has them, but mixing it with our possessions has to be labelled).

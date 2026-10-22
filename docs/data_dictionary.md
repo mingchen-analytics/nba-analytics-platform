@@ -305,6 +305,16 @@ stint, credited points equal possession points, and per team-season the players'
 5 times the lineups' and the pairs' exactly 10 times (`docs/validation/onoff_checks.md`). Snapshot build (all 60 season files): 22,571 player rows, 420,946 lineups, 151,672 pairs.
 `python -m nba_platform.marts.onoff --compare` also writes `docs/validation/onoff_credit_methods.md`: on/off under option A (`end_lineup`) against the hybrid.
 
+## marts.team_efficiency_season
+
+Points per 100 possessions per team and season from our own possessions (`marts/team_efficiency.py`), **PRIMARY KEY**
+`(season_end_year, season_type, team_id)`, 1,372 rows; approved 2026-10-22. Three versions of every rating: all possessions
+(`ortg`, `drtg`, `net`), `_ex_heave` (without end-of-period heaves) and `_ex_heave_garbage` (also without garbage time),
+each with its `o_poss`, `o_pts`, `d_poss`, `d_pts`. `poss_per_game` = (offense + defense possessions) / 2 / games.
+`pts_outside_possessions` = technical and between-possession free throws, so `o_pts + pts_outside_possessions` is the team's
+total; it equals NBA.com's season box score for 1,365 of 1,372 team-seasons (`docs/validation/team_efficiency.md`; the two
+largest gaps are the 2024-25 playoff game without play-by-play). Rows carry `rules_version`, `rules_profile`.
+
 ## core.possessions, core.possession_stint_segments (Claude-written, owner-reviewed)
 
 Built per season by `python -m nba_platform.build_core --season-end-year Y --season-type T --step possessions [--profile pbpstats_compat|custom]`
