@@ -1003,3 +1003,28 @@ stints, possessions and events. A schema addition: **not merged until the owner 
   on average over 10,945 player-seasons with 500+ minutes (the large single gaps come from incomplete box scores,
   see `docs/validation/box_vs_pbp.md`).
 - No page yet: the owner wants to see the layout of the existing pages first.
+
+## 2026-10-22 — 2017-18 outlier, second part (read-only analysis, overnight; no rule changed)
+
+All 159 `implied` possession starts of the 2017-18 regular season (a possession that stayed open when the other
+team acted; 80+ games), each placed in exactly one category, first match wins. Numbers and IDs only.
+
+| # | category | n | note |
+|---|---|---|---|
+| 1 | an event the source inserted out of number order lies within 4 rows of the trigger | 92 (58 %) | 80 games, mostly the first 300 games of the season |
+| 2 | missed field goal by the first team, no rebound row before the other team acts | 14 | |
+| 3 | missed free throw, no rebound row | 1 | |
+| 4 | rebound rows exist but none ends the possession | 35 | 17 have only rebound rows of the first team (an event of that team is missing or misplaced); 18 have a rebound row of the other team that the code cannot tie to a miss or that follows a non-final free throw |
+| 5 | made free throw by the first team, the end of the trip is not shown | 15 | last free-throw code seen: "1 of 1" 7, "2 of 2" 6, other 2 |
+| 6 | made shot or turnover by the first team, possession still open | 2 | |
+
+Check against the official NBA.com play-by-play (shufinskiy `nbastats_2017`, message types only): in categories 2 and 3
+(15 cases) the official file has a rebound row directly after the same miss in **14** (the other case has no miss at that
+clock), i.e. the rebound exists in the official file but is not where the primary source's rows need it. Examples:
+`0021700002` event 334, `0021700012` event 222, `0021700252` event 484.
+- Categories 2-6 (67 cases, 42 %) are missing, missing-from-place or inconsistent events in the primary source; the
+  evidence supports **corrections rows** (working agreement 4) rather than a reordering rule, but a correction needs a
+  confirmed error per case. Category 1 (92) is the late-added-event mechanism of the first part (entry above).
+- Not done: category 4's 18 cases with a rebound row of the other team are only partly traced (the rebound row is
+  matched to no miss, or follows a non-final free throw); no correction rows written; whether to add a reordering rule in
+  `custom` stays the owner's decision. **[待確認]**
