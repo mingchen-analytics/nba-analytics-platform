@@ -37,7 +37,7 @@ def test_possessions_written_and_checked(con, tmp_path, monkeypatch):
     monkeypatch.setattr(dbm, "PROJECT_ROOT", tmp_path)
     (tmp_path / "docs" / "validation").mkdir(parents=True)
     out = build_core.run(con, 2005, "regular", "possessions")
-    assert out["possessions"] > 0 and out["checks"][111] == ("pass", 0) and out["checks"][8][0] == "skip" and out["checks"][7][0] == "pass"
+    assert out["possessions"] > 0 and out["checks"][112] == ("pass", 0) and out["checks"][8][0] == "skip" and out["checks"][7][0] == "pass"
     pos = con.execute("SELECT count(*), count(DISTINCT rules_profile), min(rules_profile) FROM core.possessions").fetchone()
     assert pos[0] == out["possessions"] and pos[1:] == (1, "pbpstats_compat")
     # every event is in a possession or is a free throw outside one

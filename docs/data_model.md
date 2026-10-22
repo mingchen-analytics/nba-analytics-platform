@@ -64,7 +64,7 @@ erDiagram
 | `core.shot_quality_flags` | 1,436,811 | `(game_id, source_event_num, flag)` | **PRIMARY KEY** | → `core.shots` |
 | `core.known_gaps` | 2 | `(game_id, issue)` | **PRIMARY KEY** | → `core.games` |
 | `core.stints` | 1,161,854 | `(game_id, stint_id)` | **PRIMARY KEY** | `game_id` → games; `events.stint_id` → stints |
-| `core.possessions` | 7,275,201 | `(game_id, possession_id)` | **PRIMARY KEY**; checks 111, 7, 8 | `events.possession_id` → possessions; teams → `core.teams` |
+| `core.possessions` | 7,275,190 | `(game_id, possession_id)` | **PRIMARY KEY**; checks 112, 7, 8 | `events.possession_id` → possessions; teams → `core.teams` |
 | `core.possession_stint_segments` | 8,128,672 | `(game_id, possession_id, segment_seq)` | **PRIMARY KEY** | → possessions, → stints |
 
 `core.events` also has `stint_id`, `possession_id`, `chance_id`, `foul_event_seq`, `is_technical_ft`,

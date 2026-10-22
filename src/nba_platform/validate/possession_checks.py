@@ -1,7 +1,7 @@
 """Checks on our own possessions (CLAUDE.md validation checklist 7 and 8, plus points conservation).
 
 Run after `build_core --step possessions`. Check ids:
-- 111 (hard): in every game, each team's possession points + technical FTs + between-possessions FTs
+- 112 (hard): in every game, each team's possession points + technical FTs + between-possessions FTs
   = its final score (events are the single source of points), and every event outside a possession is
   one of those free throws.
 - 7 (warning): the two teams' possession counts in a game differ by at most 2.
@@ -40,7 +40,7 @@ def check_points_conserved(con, y: int, t: str) -> CheckResult:
     bad = [r for r in rows if not r[4]]
     known = [r for r in rows if r[4]]
     n = _scalar(con, "SELECT 2 * count(*) FROM core.games WHERE season_end_year = ? AND season_type = ? AND NOT coalesce(pbp_missing, FALSE)", [y, t])
-    return CheckResult(111, "possession points + FTs outside possessions = final score", "fail" if bad else "pass", n, len(bad),
+    return CheckResult(112, "possession points + FTs outside possessions = final score", "fail" if bad else "pass", n, len(bad),
                        {"examples": [list(b[:4]) for b in bad[:10]], "known_source_score_conflicts": [list(k[:4]) for k in known]},
                        level="hard")
 
@@ -119,7 +119,7 @@ def write_report(con, y: int, t: str, results: list[CheckResult], path: Path) ->
                   "Reported, never fixed to match (working agreement 11).", "",
                   "| game_id | team (defense) | ours | pbpstats | ours - pbpstats |", "|---|---|---|---|---|"]
         lines += [f"| `{g}` | {a} | {o} | {r} | {d:+d} |" for g, a, o, r, d in rows]
-    known = next((r.detail.get("known_source_score_conflicts") for r in results if r.check_id == 111), None)
+    known = next((r.detail.get("known_source_score_conflicts") for r in results if r.check_id == 112), None)
     if known:
-        lines += ["", f"Check 111, known source score conflicts (registered in `core.known_gaps`, not failed): {known}."]
+        lines += ["", f"Check 112, known source score conflicts (registered in `core.known_gaps`, not failed): {known}."]
     path.write_text(chr(10).join(lines) + chr(10), encoding="utf-8")

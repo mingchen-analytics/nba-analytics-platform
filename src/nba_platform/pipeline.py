@@ -91,10 +91,7 @@ def run_season(
         else:
             gap_problems = known_gaps.apply(con, y, t) if not game_ids else []
             gaps = known_gaps.season_gaps(con, y, t)
-            results.append(checks.CheckResult(
-                111, "known gaps / source contradictions applied (corrections/known_gaps.csv)",
-                "fail" if gap_problems else ("known" if gaps else "pass"), len(gaps), len(gap_problems),
-                {"gaps": gaps, "problems": gap_problems}))
+            results.append(checks.check_111_known_gaps(gaps, gap_problems))
             warning_checks = checks.PBP_WARNING_CHECKS
             if game_ids:  # a single-game checkpoint has no schedule to compare against
                 warning_checks = tuple(c for c in warning_checks if c is not checks.check_1_game_count)

@@ -182,7 +182,7 @@ def write_report(con, path: Path) -> dict:
         lines += ["| season | type | team | ours | official | difference | games without play-by-play |", "|---|---|---|---|---|---|---|"]
         lines += [f"| {season_label(y)} | {t} | {ab} | {int(o):,} | {int(b):,} | {int(o) - int(b):+d} | {n} |" for y, t, ab, o, b, n in diff]
         lines += ["", "Differences come from games whose source score and official box disagree, or incomplete box scores "
-                  "(see `docs/validation/box_vs_pbp.md` and check 111 in `docs/validation/possession_summary.md`), or from a game that "
+                  "(see `docs/validation/box_vs_pbp.md` and check 112 in `docs/validation/possession_summary.md`), or from a game that "
                   "has a box score but no play-by-play (last column; it has no possessions)."]
     shots = con.execute("""
         SELECT count(*), count(*) FILTER (e.o_fga = s.fga), count(*) FILTER (e.o_fgm = s.fgm), count(*) FILTER (e.o_fg3m = s.fg3m),

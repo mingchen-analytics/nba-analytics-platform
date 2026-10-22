@@ -1144,3 +1144,12 @@ missed shot and the event that had opened the new possession.
   that the old spurious possession had hidden. Check 7 (teams differing by more than 2) goes from 21 to 23 games: in two games one side is now exact and the other side keeps an unrelated +3.
 - What this does not fix: the 92 cases of category 1 (late-added events), the 15 other categories-4/5/6 cases, and the broader pattern: 9,869 of 572,730 rows of 2017-18 sit out of `event_num` order
   (a reorder rule in `custom` would address all of them; not decided). **[待確認]** the time corrections (clock / secs_game shifts of up to 6 s).
+
+## 2026-10-22 — Two checks shared the id 111 (found while regenerating the season report; fixed)
+
+The staging check "known gaps / source contradictions applied" and the possession check "possession points + FTs outside possessions = final
+score" were both stored as check 111. Each season's possession run replaced the known-gaps row, so the season report showed ✅ where a known gap
+exists (for example the 2024-25 playoff game without play-by-play). Fix: the possession check is **112**; the known-gaps result is produced by one function
+(`checks.check_111_known_gaps`) used by the pipeline and by a one-off repair (`python -m nba_platform.validate.fix_check_ids`, safe to repeat):
+60 possession rows moved to 112, 60 known-gaps rows rewritten from `core.known_gaps`; the season report has a new column "112 poss. points". Nothing in the data changed; earlier
+log entries that say "check 111" for the possession points check mean 112 now.

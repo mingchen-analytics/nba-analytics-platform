@@ -364,7 +364,7 @@ every possession (`possession_id` NULL) is a technical free throw or a between-p
 `after_made_shot`, `after_defensive_rebound`, `after_steal`, `after_dead_ball_turnover`, `after_free_throw`,
 `after_jump_ball`, `period_start`, `implied` (the source never showed how the previous possession ended; counted in the
 diagnostics, 57 in 2004-05); end types: `made_fg`, `defensive_rebound`, `turnover`, `made_ft`, `jump_ball`, `period_end`,
-`implied`. Checks: 111 (hard), 7 and 8 (warnings), report `docs/validation/possession_check_{year}_{type}.md`.
+`implied`. Checks: 112 (hard), 7 and 8 (warnings), report `docs/validation/possession_check_{year}_{type}.md`.
 
 ---
 

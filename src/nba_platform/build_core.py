@@ -6,7 +6,7 @@ Runs the pure functions in `nba_platform.core` on a season that is already loade
 - `--step stints`: core.stints (rows of that season replaced) and core.events.stint_id.
 - `--step possessions`: core.possessions, core.possession_stint_segments and, on core.events,
   possession_id, chance_id, is_between_possessions_ft, foul_event_seq, is_technical_ft; then the
-  possession checks (validate/possession_checks.py: 111 points conserved (hard), 7, 8) and the
+  possession checks (validate/possession_checks.py: 112 points conserved (hard), 7, 8) and the
   report docs/validation/possession_check_{season}.md. Uses the rule profile `--profile`.
 
 Checks after building (hard: the transaction is rolled back): every event has a stint_id;

@@ -3,10 +3,10 @@
 Per season: our possessions against the sources. Numbers only. `identical` and `within 1` are shares of team-games
 against pbpstats (check 8; possessions flagged as end-of-period heaves excluded; `-` = no pbpstats reference).
 `games > 2` = check 7 failures (games where the two teams' counts differ by more than 2); `implied` = possessions
-opened because the source never showed how the previous one ended. Check 111 (hard): possession points + free
+opened because the source never showed how the previous one ended. Check 112 (hard): possession points + free
 throws outside possessions = final score (known source score conflicts are not failures).
 
-| season | type | games | possessions | 111 | games > 2 (7) | identical (8) | within 1 (8) | implied |
+| season | type | games | possessions | 112 | games > 2 (7) | identical (8) | within 1 (8) | implied |
 |---|---|---|---|---|---|---|---|---|
 | 1996-97 | regular | 1,189 | 220,303 | pass | 3 | - | - | 42 |
 | 1997-98 | regular | 1,189 | 220,721 | pass | 7 | - | - | 45 |
@@ -29,7 +29,7 @@ throws outside possessions = final score (known source score conflicts are not f
 | 2014-15 | regular | 1,230 | 235,322 | pass | 6 | 98.74% | 100.00% | 54 |
 | 2015-16 | regular | 1,230 | 239,616 | pass | 5 | 98.58% | 100.00% | 77 |
 | 2016-17 | regular | 1,230 | 240,460 | pass | 5 | 80.28% | 98.25% | 32 |
-| 2017-18 | regular | 1,230 | 242,356 | pass | 21 | 70.37% | 94.72% | 159 |
+| 2017-18 | regular | 1,230 | 242,345 | pass | 23 | 70.61% | 94.80% | 142 |
 | 2018-19 | regular | 1,230 | 249,246 | pass | 1 | 77.89% | 97.97% | 41 |
 | 2019-20 | regular | 1,059 | 215,200 | pass | 2 | 78.12% | 98.25% | 29 |
 | 2020-21 | regular | 1,080 | 216,865 | pass | 2 | 77.50% | 97.36% | 22 |

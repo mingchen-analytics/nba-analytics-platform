@@ -23,7 +23,7 @@ DETAILS_DIR = VALIDATION_DIR / "details"
 REPORT_COLUMNS = [
     (0, "0 staging"), (9, "9 IDs"), (102, "102 keys"), (104, "104 dup"), (105, "105 time"), (106, "106 rows"),
     (1, "1 games"), (2, "2 score"), (3, "3 five"), (4, "4 subs"), (5, "5 box"), (6, "6 secs"),
-    (107, "107 shot rows"), (10, "10 shots"), (11, "11 BigDataBall"), (101, "101 clock"), (109, "109 order ties"), (110, "110 xref noise"), (111, "111 known gaps"),
+    (107, "107 shot rows"), (10, "10 shots"), (11, "11 BigDataBall"), (101, "101 clock"), (109, "109 order ties"), (110, "110 xref noise"), (111, "111 known gaps"), (112, "112 poss. points"),
 ]
 
 

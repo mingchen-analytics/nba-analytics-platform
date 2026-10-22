@@ -1,7 +1,7 @@
 """Rebuild everything derived from the loaded play-by-play, in order, in one run (the only writer).
 
 1. core tables for every loaded season: stints, possessions, segments, event links
-   (nba_platform.build_core, profile `pbpstats_compat`), with checks 111 / 7 / 8 and per-season reports;
+   (nba_platform.build_core, profile `pbpstats_compat`), with checks 112 / 7 / 8 and per-season reports;
 2. reference.nba_player_box and the marts: player_game_pbp, player_game / player_season / team_game /
    team_season, shot zones, player tracking, single-game tracking, matchup pairs, on/off + lineups + pairs (with the
    credit-method comparison), team efficiency (each a full rebuild in one transaction);

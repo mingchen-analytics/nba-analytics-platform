@@ -441,6 +441,14 @@ PBP_WARNING_CHECKS = (
 )
 
 
+def check_111_known_gaps(gaps: dict, problems: list) -> CheckResult:
+    """Check 111: the season's known gaps / source contradictions (corrections/known_gaps.csv). Id 111 belongs to this check
+    alone; the possession points check is 112 (they shared 111 until 2026-10-22 and overwrote each other)."""
+    return CheckResult(111, "known gaps / source contradictions applied (corrections/known_gaps.csv)",
+                       "fail" if problems else ("known" if gaps else "pass"), len(gaps), len(problems),
+                       {"gaps": gaps, "problems": problems})
+
+
 def save_results(con: duckdb.DuckDBPyConnection, y: int, t: str, results: list[CheckResult]) -> None:
     """Replace every stored result of this season with this run's results."""
     run_at = datetime.now()
