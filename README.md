@@ -139,6 +139,14 @@ Cross-checks that came out of it:
   player-games for every statistic in every season (`docs/validation/box_vs_pbp.md`); the comparison
   also exposed two era-specific encodings (who is credited with a steal; a new technical-foul code in 2023-24).
 - Shot locations join to at least 99.88 % of field-goal attempts in every season.
+- Team points from my possessions (plus technical free throws) equal NBA.com's season box score for 1,365 of 1,372
+  team-seasons; the largest gaps are one playoff game that has a box score but no play-by-play (`docs/validation/team_efficiency.md`).
+- NBA.com's own tracking data: 44 player-seasons in 2025-26 average physically impossible speeds (up to 22.6 mph). The single-game
+  boxes trace all of it to three games with 60-338 mph; without them those players run at 3.9-4.8 mph. Flagged, not deleted
+  (`docs/validation/tracking_quality.md`).
+- How a possession is credited when a substitution happens between a foul and its free throws moves 7.1 % of all points between
+  lineups and changes a typical player's on-off by about 1 point per 100 possessions (`docs/validation/onoff_credit_methods.md`); the
+  choice is documented as open.
 - Against BigDataBall (7 seasons): final scores agree in all but 2 of 8,883 games, and where the
   lineups disagree, box-score minutes and official substitutions side with the primary source in
   641 of 647 decidable cases.
