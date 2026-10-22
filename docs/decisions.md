@@ -1142,5 +1142,5 @@ missed shot and the event that had opened the new possession.
   260,527 unchanged. Against pbpstats: identical team-games 70.37 % → **70.61 %** (within 1: 94.72 % → 94.80 %); 7 team-games become exact (HOU, NOP, ATL, WAS, NYK, LAL, SAC), 3 improve
   (OKC, PHI, DET), 1 changes from match to -1 (SAS in `0021700086`). The corrected sequence of that game equals pbpstats' sequence possession by possession; the -1 is a difference elsewhere in the game
   that the old spurious possession had hidden. Check 7 (teams differing by more than 2) goes from 21 to 23 games: in two games one side is now exact and the other side keeps an unrelated +3.
-- What this does not fix: the 92 cases of category 1 (late-added events), the 15 other categories-4/5/6 cases, and the broader pattern: 9,869 of 570,731 rows of 2017-18 sit out of `event_num` order
+- What this does not fix: the 92 cases of category 1 (late-added events), the 15 other categories-4/5/6 cases, and the broader pattern: 9,869 of 572,730 rows of 2017-18 sit out of `event_num` order
   (a reorder rule in `custom` would address all of them; not decided). **[待確認]** the time corrections (clock / secs_game shifts of up to 6 s).
