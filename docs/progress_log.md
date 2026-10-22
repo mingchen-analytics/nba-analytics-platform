@@ -817,3 +817,10 @@
 - 購買的 BigDataBall 檔案清單改放本機 `data/raw/manifest_local.csv`（git 忽略），公開的 manifest 只留可下載的來源；加 MIT LICENSE 與 README 的資料說明。
 - 發布前掃描：沒有信箱、本機路徑、token、資料檔、來源原文；新歷史裡沒有任何 details 檔。
 - 還沒決定：要不要改成公開、Dashboard 要不要公開部署（資料條款）。
+
+## Dashboard 人工檢查發現的資料問題：2025-26 追蹤速度不合理（2026-10-22 01:00）
+
+- 你的截圖顯示 Cooper Flagg 平均速度 12.1 mph、Shaedon Sharpe 15.4 mph。查證：2025-26 例行賽有 44 位球員的 NBA.com 速度／距離異常（最高 22.6 mph，距離約為正常值 2.7 倍），集中在 MIL、DAL、NYK、POR；其他賽季最大值為 5.08 mph。是來源的問題。
+- 處理（標記、不刪除）：`marts.player_tracking_season.movement_suspect`（速度 > 5.5 mph 且上場 ≥ 100 分鐘）；新報告 `docs/validation/tracking_quality.md`（各季中位數與標記）；Tracking 頁在 Movement 類別顯示警告並預設隱藏被標記的列。
+- 同一份報告也看出：2024-25 起持球時間與觸球的測量尺度改變（來源換了追蹤測量），跨 2023-24 → 2024-25 不可直接比較。
+- 教訓：我們的驗證沒有檢查追蹤測量本身的合理範圍，是人工看頁面才發現；已補上。

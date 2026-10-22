@@ -89,12 +89,12 @@ def ddl() -> str:
     cols = ",\n        ".join(f"{c} DOUBLE" for _, _, c, _ in columns())
     return f"""(
         season_end_year INTEGER NOT NULL, season_type TEXT NOT NULL, player_id INTEGER NOT NULL, team_id INTEGER NOT NULL,
-        gp INTEGER, min DOUBLE, hustle_gp INTEGER,
+        gp INTEGER, min DOUBLE, hustle_gp INTEGER, movement_suspect BOOLEAN,
         {cols},
         PRIMARY KEY (season_end_year, season_type, player_id, team_id))"""
 
 
-def insert_sql() -> str:
+def insert_sql(max_avg_speed: float = 5.5, min_minutes: float = 100) -> str:
     tracking = [f"any_value({c.upper()}) FILTER (request_param_1 = '{m}') AS {c}" for _, m, c, _ in columns() if m != "hustle"]
     # column order of the table = columns(); tracking and hustle columns are interleaved by group
     select = ", ".join(f"h.{c}" if m == "hustle" else f"t.{c}" for _, m, c, _ in columns())
@@ -117,14 +117,19 @@ def insert_sql() -> str:
                    PLAYER_ID AS player_id, TEAM_ID AS team_id, G AS hustle_gp,
                    {", ".join(f"{c.upper()} AS {c}" for _, m, c, _ in columns() if m == "hustle")}
             FROM reference.nba_hustle WHERE request_param_1 = 'player')
-        SELECT s.season_end_year, s.season_type, s.player_id, s.team_id, t.gp, t.min, h.hustle_gp, {select}
+        SELECT s.season_end_year, s.season_type, s.player_id, s.team_id, t.gp, t.min, h.hustle_gp,
+               t.avg_speed > {float(max_avg_speed)} AND t.min >= {float(min_minutes)} AS movement_suspect, {select}
         FROM spine s
         LEFT JOIN t USING (season_end_year, season_type, player_id, team_id)
         LEFT JOIN h USING (season_end_year, season_type, player_id, team_id)"""
 
 
-def build(con) -> dict:
+def build(con, rules: dict | None = None) -> dict:
     """Rebuild marts.player_tracking_season in one transaction. Returns row counts."""
+    from nba_platform.rules import load_rules
+
+    cfg = (rules or load_rules())["dashboard"]
+    max_speed, min_minutes = float(cfg["tracking_max_plausible_avg_speed_mph"]), float(cfg.get("tracking_suspect_min_minutes", 100))
     _check_source_columns(con)
     unknown = con.execute("""
         SELECT count(DISTINCT PLAYER_ID) FROM (SELECT PLAYER_ID FROM reference.nba_tracking
@@ -138,20 +143,21 @@ def build(con) -> dict:
     threads = con.execute("SELECT current_setting('threads')").fetchone()[0]
     con.execute("SET threads = 1")
     try:
-        return _build_in_transaction(con)
+        return _build_in_transaction(con, max_speed, min_minutes)
     finally:
         con.execute(f"SET threads = {int(threads)}")
 
 
-def _build_in_transaction(con) -> dict:
+def _build_in_transaction(con, max_speed: float, min_minutes: float) -> dict:
     con.execute("BEGIN")
     try:
         con.execute("DROP TABLE IF EXISTS marts.player_tracking_season")
         con.execute(f"CREATE TABLE marts.player_tracking_season {ddl()}")
-        con.execute(f"INSERT INTO marts.player_tracking_season {insert_sql()}")
+        con.execute(f"INSERT INTO marts.player_tracking_season {insert_sql(max_speed, min_minutes)}")
         out = {"rows": con.execute("SELECT count(*) FROM marts.player_tracking_season").fetchone()[0],
                "with_tracking": con.execute("SELECT count(*) FROM marts.player_tracking_season WHERE gp IS NOT NULL").fetchone()[0],
-               "with_hustle": con.execute("SELECT count(*) FROM marts.player_tracking_season WHERE hustle_gp IS NOT NULL").fetchone()[0]}
+               "with_hustle": con.execute("SELECT count(*) FROM marts.player_tracking_season WHERE hustle_gp IS NOT NULL").fetchone()[0],
+               "movement_suspect": con.execute("SELECT count(*) FROM marts.player_tracking_season WHERE movement_suspect").fetchone()[0]}
         lost = con.execute("""
             SELECT (SELECT count(*) FROM (SELECT DISTINCT season, season_type, PLAYER_ID, TEAM_ID FROM reference.nba_hustle
                                           WHERE request_param_1 = 'player')) - count(hustle_gp) FROM marts.player_tracking_season""").fetchone()[0]

@@ -270,7 +270,7 @@ Tracking misses some games, so `gp` can be lower than the box score (`docs/valid
 
 | group | columns (lower case) |
 |---|---|
-| keys and base | `gp`, `min` (from the Possessions measure), `hustle_gp` (hustle games; NULL before 2015-16) |
+| keys and base | `gp`, `min` (from the Possessions measure), `hustle_gp` (hustle games; NULL before 2015-16), `movement_suspect` (average speed above `dashboard.tracking_max_plausible_avg_speed_mph` with at least `tracking_suspect_min_minutes` minutes: an implausible NBA.com value, kept and flagged; 44 player-seasons, all 2025-26 regular season) |
 | Movement | `dist_miles`, `dist_miles_off`, `dist_miles_def`, `avg_speed`, `avg_speed_off`, `avg_speed_def` |
 | Touches & passing | `touches`, `front_ct_touches`, `time_of_poss`, `avg_sec_per_touch`, `avg_drib_per_touch`, `pts_per_touch`, `passes_made`, `passes_received`, `potential_ast`, `ast_pts_created`, `secondary_ast`, `ft_ast`, `ast_to_pass_pct`, `paint_touches`, `paint_touch_fga`, `post_touches`, `post_touch_fga`, `elbow_touches` |
 | Drives & shooting | `drives`, `drive_fga`, `drive_fg_pct`, `drive_pts`, `drive_ast`, `drive_tov`, `drive_pf`, `catch_shoot_*` (fga, fg3a, fg_pct, efg_pct, pts), `pull_up_*` (fga, fg3a, fg_pct, efg_pct, pts) |

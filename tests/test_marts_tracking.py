@@ -38,7 +38,7 @@ def test_column_names_are_unique_and_known():
 
 def test_flattens_measures_into_one_row_per_key(con):
     out = tr.build(con)
-    assert out == {"rows": 3, "with_tracking": 3, "with_hustle": 1}
+    assert out == {"rows": 3, "with_tracking": 3, "with_hustle": 1, "movement_suspect": 0}
     row = con.execute("SELECT gp, min, touches, dist_miles, avg_speed, deflections, hustle_gp FROM marts.player_tracking_season "
                       "WHERE player_id = 7").fetchone()
     assert row == (70, 2100.0, 3000.0, 180.5, 4.2, 120.0, 69)
@@ -74,3 +74,20 @@ def test_thread_setting_is_restored(con):
     before = con.execute("SELECT current_setting('threads')").fetchone()[0]
     tr.build(con)
     assert con.execute("SELECT current_setting('threads')").fetchone()[0] == before
+
+
+def test_implausible_average_speed_is_flagged_not_dropped(con):
+    con.execute("UPDATE reference.nba_tracking SET AVG_SPEED = 15.4 WHERE request_param_1 = 'SpeedDistance' AND PLAYER_ID = 7")
+    out = tr.build(con, {"dashboard": {"tracking_max_plausible_avg_speed_mph": 5.5}})
+    assert out["rows"] == 3 and out["movement_suspect"] == 1
+    assert con.execute("SELECT movement_suspect, avg_speed FROM marts.player_tracking_season WHERE player_id = 7").fetchone() == (True, 15.4)
+    assert con.execute("SELECT count(*) FROM marts.player_tracking_season WHERE movement_suspect IS NOT TRUE").fetchone()[0] == 2  # NULL speed is not flagged
+
+
+def test_small_samples_are_not_flagged(con):
+    """Player 8 (400 min): fine; a 40-minute sample with a high average speed is not a defect."""
+    con.execute("UPDATE reference.nba_tracking SET MIN = 40 WHERE PLAYER_ID = 8 AND request_param_1 = 'Possessions'")
+    con.execute("INSERT INTO reference.nba_tracking (season, season_type, request_param_1, PLAYER_ID, TEAM_ID, GP, AVG_SPEED) "
+                "VALUES ('2024-25', 'regular', 'SpeedDistance', 8, 1, 20, 7.0)")
+    out = tr.build(con, {"dashboard": {"tracking_max_plausible_avg_speed_mph": 5.5, "tracking_suspect_min_minutes": 100}})
+    assert out["movement_suspect"] == 0

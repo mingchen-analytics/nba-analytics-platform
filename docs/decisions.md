@@ -951,3 +951,24 @@ Repository: `mingchen-analytics/nba-analytics-platform`, **private**. Decisions 
    are kept; the README says so.
 Making the repository public, and deploying the dashboard publicly, are separate decisions
 (data terms of ramirobentes / NBA.com) **[待確認]**.
+
+## 2026-10-22 — Implausible NBA.com tracking values in 2025-26 (found on the dashboard)
+
+Looking at the Tracking page (first manual review of the dashboard) showed average speeds of 11-15 mph
+(Cooper Flagg 12.1, Shaedon Sharpe 15.4). Investigation (read-only):
+- League medians are normal (2025-26: 2.67 miles / 36 min, 4.47 mph); the defect is in specific
+  player-seasons: **44 players above 5.5 mph in the 2025-26 regular season, up to 22.6 mph**, with
+  distances about 2.7 times normal. 9 each on MIL, DAL, NYK, POR (66-76 % of those teams' tracked
+  minutes), a few on WAS, ATL, PHX (probably traded players, because regular-season tracking lists a
+  traded player once under his last team). No other season has a value above 5.08 mph (2013-14 → 2024-25).
+- Our validation had only compared the box statistics repeated in the tracking tables, not the tracking
+  measurements themselves; `docs/validation/tracking_quality.md` now does (per-season medians and flags).
+- Handling (flag, never delete): `marts.player_tracking_season.movement_suspect` = average speed above
+  5.5 mph with at least 100 minutes (`rules.yaml` `dashboard`); the Tracking page warns and hides flagged
+  rows by default (Movement category). Other players on the affected teams may be affected below the
+  threshold; not corrected.
+- Another break found by the same report: possession time per minute and touches per 36 minutes change
+  level from 2024-25 (median possession time / minute 0.055 → 0.110 → 0.074; touches / 36 min 56 → 52), i.e. NBA.com's
+  tracking measurement changed; these measures are not comparable across 2023-24 → 2024-25. Documented
+  in the report, not changed.
+- **[待確認]** the 5.5 mph threshold and the 100-minute minimum (chosen from the clean seasons' maximum of 5.08).

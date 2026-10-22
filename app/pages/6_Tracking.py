@@ -103,13 +103,30 @@ def main() -> None:
     sort_options = [c for c, _ in columns_of(group)]
     sort_by = st.selectbox("Sort by", sort_options, format_func=str.upper)
 
+    # NBA.com's movement numbers of some player-seasons are physically impossible (2025-26: average speeds up
+    # to 22 mph); such rows are flagged in the mart (docs/validation/tracking_quality.md), kept, hidden by default
+    has_flag = bool(query("""SELECT count(*) AS n FROM information_schema.columns WHERE table_schema = 'marts'
+                             AND table_name = 'player_tracking_season' AND column_name = 'movement_suspect'""")["n"].iloc[0])
+    hide_flagged = False
+    if has_flag and group == "Movement":
+        n_flag = int(query("""SELECT count(*) AS n FROM marts.player_tracking_season WHERE movement_suspect
+                              AND season_end_year = ? AND season_type = ?""", (year, season_type))["n"].iloc[0])
+        if n_flag:
+            st.warning(f"{n_flag} player-seasons in {season_label(year)} ({season_type}) have implausible movement values from NBA.com "
+                       "(average speed above the plausible maximum). Other players on the same teams may be affected too. "
+                       "See `docs/validation/tracking_quality.md`.")
+            hide_flagged = st.checkbox("Hide the flagged player-seasons", value=True)
+    flag_col = "s.movement_suspect AS suspect, " if has_flag and group == "Movement" else ""
+    flag_filter = " AND NOT coalesce(s.movement_suspect, FALSE)" if hide_flagged else ""
+
     board = query(f"""
-        SELECT s.player_id, p.name AS player, t.abbreviation AS team, s.{gp} AS games, s.min, {select_expressions(group, mode)}
+        SELECT s.player_id, p.name AS player, t.abbreviation AS team, s.{gp} AS games, s.min, {flag_col}{select_expressions(group, mode)}
         FROM marts.player_tracking_season s JOIN core.players p USING (player_id) JOIN core.teams t USING (team_id)
-        WHERE s.season_end_year = ? AND s.season_type = ? AND s.{gp} >= ? ORDER BY {sort_by} DESC NULLS LAST LIMIT 300""",
+        WHERE s.season_end_year = ? AND s.season_type = ? AND s.{gp} >= ?{flag_filter} ORDER BY {sort_by} DESC NULLS LAST LIMIT 300""",
                   (year, season_type, min_games))
     cfg = column_config(group, mode)
-    cfg.update({"games": st.column_config.NumberColumn("GP", format="%d"), "min": st.column_config.NumberColumn("MIN", format="%d")})
+    cfg.update({"games": st.column_config.NumberColumn("GP", format="%d"), "min": st.column_config.NumberColumn("MIN", format="%d"),
+                "suspect": st.column_config.CheckboxColumn("suspect", help="implausible value from NBA.com")})
     st.dataframe(board.drop(columns="player_id"), hide_index=True, width="stretch", column_config=cfg)
     if board.empty:
         return
@@ -118,7 +135,7 @@ def main() -> None:
     names = board.set_index("player_id")["player"].to_dict()
     player_id = st.selectbox("Player (from the table above)", list(names), format_func=names.get)
     history = query(f"""
-        SELECT s.season_end_year, s.season_type, t.abbreviation AS team, s.{gp} AS games, s.min, {select_expressions(group, mode)}
+        SELECT s.season_end_year, s.season_type, t.abbreviation AS team, s.{gp} AS games, s.min, {flag_col}{select_expressions(group, mode)}
         FROM marts.player_tracking_season s JOIN core.teams t USING (team_id)
         WHERE s.player_id = ? AND s.{gp} IS NOT NULL ORDER BY s.season_end_year, s.season_type DESC""", (int(player_id),))
     history.insert(0, "season", history.pop("season_end_year").map(season_label))

@@ -112,6 +112,11 @@ dashboard:
   # attempts in the season (and type); a zone's accuracy percentile also needs the zone minimum.
   shot_percentile_min_season_fga: 100
   shot_percentile_min_zone_fga: 20
+  # Tracking: a player-season whose average speed is above this many mph is flagged `movement_suspect`
+  # (never deleted). Checked 2026-10-22: the maximum over 2013-14 -> 2024-25 (regular + playoffs) is 5.08;
+  # 2025-26 regular season has 44 players above 5.5 (up to 22.6 mph; MIL, DAL, NYK, POR), a source defect.
+  tracking_max_plausible_avg_speed_mph: 5.5
+  tracking_suspect_min_minutes: 100     # smaller samples can legitimately average above the limit; not flagged
 
 validation:
   # Not basketball rules: tolerances for validation reports.
