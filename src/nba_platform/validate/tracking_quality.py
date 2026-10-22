@@ -40,7 +40,7 @@ def write_report(con, path: Path, rules: dict | None = None) -> int:
         SELECT p.season_end_year, p.season_type, t.abbreviation, count(*) FILTER (p.movement_suspect) AS flagged,
                round(100 * sum(p.min) FILTER (p.movement_suspect) / sum(p.min), 0) AS pct_min
         FROM marts.player_tracking_season p JOIN core.teams t USING (team_id) WHERE p.gp IS NOT NULL
-        GROUP BY ALL HAVING count(*) FILTER (p.movement_suspect) >= 1 ORDER BY 1, 2, 4 DESC""").fetchall()
+        GROUP BY ALL HAVING count(*) FILTER (p.movement_suspect) >= 1 ORDER BY 1, 2, 4 DESC, 3""").fetchall()
     lines = ["# NBA.com season tracking: plausibility", "",
              f"League medians (players with 20+ games and 300+ minutes) per season, and player-seasons flagged `movement_suspect`",
              f"(average speed above {limit:g} mph; kept in `marts.player_tracking_season`, hidden by default on the Tracking page). Numbers only.", "",

@@ -38,9 +38,9 @@ Reading the table: miles / 36 min and speed are stable from 2013-14 to 2024-25 a
 
 | season | type | team | flagged players | share of the flagged players' minutes in the team's tracked minutes |
 |---|---|---|---|---|
-| 2025-26 | regular | NYK | 9 | 75 % |
 | 2025-26 | regular | DAL | 9 | 66 % |
 | 2025-26 | regular | MIL | 9 | 66 % |
+| 2025-26 | regular | NYK | 9 | 75 % |
 | 2025-26 | regular | POR | 9 | 74 % |
 | 2025-26 | regular | WAS | 5 | 27 % |
 | 2025-26 | regular | ATL | 2 | 15 % |
