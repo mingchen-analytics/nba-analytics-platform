@@ -972,3 +972,12 @@ Looking at the Tracking page (first manual review of the dashboard) showed avera
   tracking measurement changed; these measures are not comparable across 2023-24 → 2024-25. Documented
   in the report, not changed.
 - **[待確認]** the 5.5 mph threshold and the 100-minute minimum (chosen from the clean seasons' maximum of 5.08).
+
+## 2026-10-22 — Repository made public
+
+`mingchen-analytics/nba-analytics-platform` is **public** (owner decision, for the portfolio and
+résumé). Final scan before the change: published history is one author (GitHub noreply address), 5
+commits, no detail files, no purchased-file listing, no secrets or local paths, no data files except
+the public manifest. Wiki and projects disabled; topics: nba, basketball-analytics, sports-analytics,
+data-engineering, duckdb, streamlit, python, play-by-play. Deploying the dashboard publicly stays a
+separate, undecided question (data terms) **[待確認]**.

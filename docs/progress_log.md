@@ -824,3 +824,8 @@
 - 處理（標記、不刪除）：`marts.player_tracking_season.movement_suspect`（速度 > 5.5 mph 且上場 ≥ 100 分鐘）；新報告 `docs/validation/tracking_quality.md`（各季中位數與標記）；Tracking 頁在 Movement 類別顯示警告並預設隱藏被標記的列。
 - 同一份報告也看出：2024-25 起持球時間與觸球的測量尺度改變（來源換了追蹤測量），跨 2023-24 → 2024-25 不可直接比較。
 - 教訓：我們的驗證沒有檢查追蹤測量本身的合理範圍，是人工看頁面才發現；已補上。
+
+## 儲存庫改為公開（2026-10-22 01:11）
+
+- `mingchen-analytics/nba-analytics-platform` 改為 Public；公開前再掃描一次（只有 noreply 信箱、5 個 commit、沒有 details 檔／BigDataBall 清單／敏感字串／資料檔）；已設定 description 與 8 個 topics，關閉 wiki 與 projects；匿名連線確認 README 與圖片可讀取。
+- Dashboard 的公開部署（資料條款）仍未決定。
