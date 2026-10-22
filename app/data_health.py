@@ -65,6 +65,7 @@ def main() -> None:
                  [["season_end_year", "season_type"]].drop_duplicates().assign(hard=True))
     summary = (seasons.merge(counts, how="left").merge(hard_fail, how="left")
                .fillna({"games": 0, "events": 0, "shots": 0, "hard": False}))
+    summary["hard"] = summary["hard"].astype(bool)   # object after the merge; `~` on Python bools is deprecated
     summary["status"] = summary["hard"].map({True: "not loaded (hard fail)", False: "loaded"})
     summary["season"] = summary["season_end_year"].map(season_label)
     results["cell"] = [status_cell(lv, s) for lv, s in zip(results["level"], results["status"])]
