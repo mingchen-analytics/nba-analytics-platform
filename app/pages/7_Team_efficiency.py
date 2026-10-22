@@ -70,6 +70,19 @@ def main() -> None:
         "ortg_official": num("ORTG (official)"), "drtg_official": num("DRTG (official)"), "net_official": num("NET (official)", "%+.1f"),
         "pts_outside_possessions": num("PTS outside poss.", "%d", "technical and between-possession free throws")})
 
+    st.header("Four factors")
+    st.caption("From our own events and possessions. eFG% = (FGM + 0.5 x 3PM) / FGA; TOV% = possessions ending in a turnover / "
+               "possessions; ORB% = offensive rebounds / (offensive + the opponents' possession-ending defensive rebounds), team rebounds "
+               "included; FT rate = made free throws in possessions / FGA. Defense = the opponents' numbers.")
+    factors = query("""
+        SELECT t.abbreviation AS team, o_efg, o_tov_pct, o_orb_pct, o_ft_rate, d_efg, d_tov_pct, d_orb_pct, d_ft_rate
+        FROM marts.team_efficiency_season e JOIN core.teams t USING (team_id)
+        WHERE e.season_end_year = ? AND e.season_type = ? ORDER BY o_efg DESC""", (year, season_type))
+    pct = lambda title: st.column_config.NumberColumn(title, format="percent")  # noqa: E731
+    st.dataframe(factors, hide_index=True, width="stretch", column_config={
+        "o_efg": pct("eFG%"), "o_tov_pct": pct("TOV%"), "o_orb_pct": pct("ORB%"), "o_ft_rate": pct("FT rate"),
+        "d_efg": pct("opp eFG%"), "d_tov_pct": pct("opp TOV%"), "d_orb_pct": pct("opp ORB%"), "d_ft_rate": pct("opp FT rate")})
+
     st.header("League across seasons")
     league = query(f"""
         SELECT season_end_year, 100.0 * sum(o_pts{v}) / sum(o_poss{v}) AS ortg, sum(o_poss) / sum(games) AS poss_per_game

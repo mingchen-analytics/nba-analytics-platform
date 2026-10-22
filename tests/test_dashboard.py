@@ -159,7 +159,7 @@ def test_team_efficiency_page_switches_versions():
         pytest.skip("layer 2 marts not built")
     at = AppTest.from_file(str(LAYER2_PAGES["7_Team_efficiency.py"]), default_timeout=120).run()
     assert not at.exception, at.exception
-    assert at.title[0].value == "Team efficiency" and len(at.dataframe[0].value) >= 29
+    assert at.title[0].value == "Team efficiency" and len(at.dataframe) == 2 and len(at.dataframe[0].value) >= 29
     for label in ("All possessions", "Without heaves and garbage time"):
         at.radio[1].set_value(label).run()
         assert not at.exception, at.exception

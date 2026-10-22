@@ -24,8 +24,13 @@ def con():
     _poss(c, "G1", 4, 2, 1, 2, garbage=True)
     _poss(c, "G2", 1, 1, 3, 3)
     _poss(c, "G2", 2, 3, 1, 0)
-    c.execute("INSERT INTO core.events (game_id, event_seq, period, secs_elapsed_game, team_id, event_type, points, is_technical_ft, source) "
-              "VALUES ('G1', 9, 1, 50, 1, 'free_throw', 1, TRUE, 't')")
+    c.execute("INSERT INTO core.events (game_id, event_seq, period, secs_elapsed_game, team_id, event_type, points, is_technical_ft, possession_id, source) "
+              "VALUES ('G1', 9, 1, 50, 1, 'free_throw', 1, TRUE, NULL, 't'), "
+              # team 1 in G1: a made three, a missed two, a made free throw in a possession; team 2: a made two
+              "('G1', 10, 1, 60, 1, 'shot_made', 3, NULL, 1, 't'), ('G1', 11, 1, 70, 1, 'shot_missed', 0, NULL, 3, 't'), "
+              "('G1', 12, 1, 80, 1, 'free_throw', 1, FALSE, 1, 't'), ('G1', 13, 1, 90, 2, 'shot_made', 2, NULL, 2, 't')")
+    c.execute("UPDATE core.possessions SET end_type = 'turnover' WHERE game_id = 'G1' AND possession_id = 3")
+    c.execute("UPDATE core.possessions SET num_chances = 2, end_type = 'defensive_rebound' WHERE game_id = 'G2' AND possession_id = 1")
     yield c
     c.close()
 
@@ -72,3 +77,15 @@ def test_team_not_in_game_fails(con):
     _poss(con, "G2", 3, 2, 3, 2)
     with pytest.raises(te.TeamEfficiencyError, match="not one of the game's two teams"):
         te.build(con)
+
+
+def test_four_factors_from_our_events(con):
+    te.build(con)
+    t1, t2 = _row(con, 1), _row(con, 2)
+    assert (t1["o_fga"], t1["o_fgm"], t1["o_fg3m"], t1["o_ftm"]) == (2, 1, 1, 1)   # the technical free throw is not counted
+    assert t1["o_efg"] == 0.75 and t1["o_ft_rate"] == 0.5
+    assert (t1["o_tov"], t1["o_tov_pct"]) == (1, pytest.approx(1 / 3))
+    assert (t1["o_orb"], t1["o_drb_against"], t1["o_orb_pct"]) == (1, 1, 0.5)     # G2: one offensive rebound, then a defensive one
+    # defense = the opponents' offense in the same games: team 2 in G1 (one made two) and team 3 in G2 (nothing)
+    assert (t1["d_fga"], t1["d_fgm"], t1["d_efg"]) == (1, 1, 1.0)
+    assert (t2["d_fga"], t2["d_fg3m"], t2["d_tov"]) == (2, 1, 1)

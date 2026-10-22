@@ -314,6 +314,10 @@ each with its `o_poss`, `o_pts`, `d_poss`, `d_pts`. `poss_per_game` = (offense +
 `pts_outside_possessions` = technical and between-possession free throws, so `o_pts + pts_outside_possessions` is the team's
 total; it equals NBA.com's season box score for 1,365 of 1,372 team-seasons (`docs/validation/team_efficiency.md`; the two
 largest gaps are the 2024-25 playoff game without play-by-play). Rows carry `rules_version`, `rules_profile`.
+Four factors, offense `o_` and defense `d_` (the opponents' offense), from our own events and possessions: counts `fga`, `fgm`,
+`fg3m`, `ftm` (made free throws inside possessions), `tov` (possessions ending in a turnover), `orb` (`num_chances - 1`, team
+rebounds included), `drb_against` (possessions ending in a defensive rebound); rates `efg`, `tov_pct`, `orb_pct`, `ft_rate`. FGA equal
+NBA.com's for 1,331 of 1,372 team-seasons; eFG% for BOS 2023-24 and GSW 2015-16 equal the official values.
 
 ## core.possessions, core.possession_stint_segments (Claude-written, owner-reviewed)
 

@@ -860,3 +860,9 @@
 - `8_On_off.py`：球員 on/off（預設去掉節末亂投，可關閉；最少回合數滑桿；每個比率旁都有回合數），以及該球員歷年 on/off。
 - `9_Lineups.py`：五人陣容與兩人組合兩個分頁。
 - Teams 頁的說明改為指向 Team efficiency 頁；README、CLAUDE.md 路線圖（Phase 4 完成）更新。共 290 個測試。
+
+## 隔夜：四因子（2026-10-22 03:55）
+
+- 球隊效率表加入四因子（eFG%、TOV%、ORB%、FT rate，進攻與防守），全部用我們自己的事件和回合計算，不混入官方 box score。
+- 和官方比對：FGA 在 1,331 / 1,372 隊季完全相同，FGM 1,366、3PM 1,367；eFG% 最大差 0.008。ORB% 包含球隊籃板，所以略高於 box score 的 ORB%；定義標為 [待確認]。
+- Team efficiency 頁新增四因子表。

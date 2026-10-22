@@ -1051,3 +1051,8 @@ team points equal for 1,365 of 1,372 team-seasons; the 7 others are small source
 points) and the 2024-25 playoff game `0042400231` that has a box score but no play-by-play (GSW -99, MIN -88). Sanity: GSW 2015-16
 net +10.9, BOS 2023-24 net +11.5 (without heaves). Four factors are not built yet (they need shot, rebound and turnover counts;
 the official box score has them, but mixing it with our possessions has to be labelled).
+- Addendum (same day): **four factors added** to `marts.team_efficiency_season`, all from our own events and possessions (no
+  box-score numbers mixed in): eFG% from shot events; TOV% = possessions ending in a turnover / possessions; ORB% = chance
+  boundaries / (chance boundaries + the opponents' possession-ending defensive rebounds), which counts team rebounds on both
+  sides (so it runs slightly above box-score ORB%); FT rate = made free throws inside possessions / FGA. Our FGA equal NBA.com's for
+  1,331 of 1,372 team-seasons. **[待確認]**: these definitions (in particular team rebounds in ORB% and made, not attempted, free throws).
