@@ -44,14 +44,20 @@ possessions equal the final score. Per-season table: `docs/validation/possession
 One season (2017-18) is the outlier at 70 %: the source inserts late-added events out of order early
 in that season (analysis in `docs/decisions.md`, 2026-10-22).
 
-<!-- Screenshots of the dashboard go here (docs/img/*.png) -->
-
 ## Dashboard
 
 Seven read-only Streamlit pages (`app/`): data health, reference data, games (official box score and
 score-margin chart), players (leaderboard and game log), teams, shooting (zone frequency and accuracy
 with league percentiles, shot chart) and tracking / hustle. Layers 2 and 3 (on/off, lineups, RAPM)
-are specified in `docs/dashboard_spec.md`.
+are specified in `docs/dashboard_spec.md`. Every number is labelled by where it comes from (official
+NBA.com value, counted from my play-by-play, or model).
+
+| | |
+|---|---|
+| ![Games page: official box score of one game](docs/img/games.png) | ![Shooting page: zone frequency and accuracy with league percentiles](docs/img/shooting.png) |
+| **Games**: official box score of a 2024-25 playoff game | **Shooting**: share and accuracy by zone, with league percentiles |
+| ![Tracking page, movement: distance and speed](docs/img/tracking_movement.png) | ![Tracking page, touches and passing](docs/img/tracking_touches.png) |
+| **Tracking**: distance and speed (2024-25), totals / per game / per 36 | **Tracking**: touches and passing (2025-26) |
 
 ## Architecture
 
