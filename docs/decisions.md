@@ -1125,3 +1125,22 @@ Roadmap Phase 7 (integrate the Playoff Matchup Adjustment Tracker by shared IDs)
   `rules.yaml` `substitution_credit` is now `pbpstats_hybrid` for all profiles (it was `null` outside `pbpstats_compat`); possession rows do not
   depend on it, so `rules_version` stays `2026-10-21.6` and no possession was rebuilt. CLAUDE.md and the possession-rule text are updated.
 - **D. 2017-18: write `corrections` for the 15 "missing rebound" cases first**, each confirmed against the official play-by-play (next entry).
+
+## 2026-10-22 — 2017-18: corrections for the 15 "missing rebound" cases (owner: do these first)
+
+Owner decision D. The 15 possessions of categories 2 and 3 (entry above) were **not missing rebounds**: the rebound row exists but the source's
+row order (`number_event`, which staging sorts by) puts it after the next event, because the source's tenth-of-a-second clock stamps it
+0.1-6 s later than the event that follows it in the official order. The official NBA.com event numbers (`EVENTNUM`, the same as the source's `event_num`) give the
+right order. Each case was checked against the official file (shufinskiy `nbastats_2017`): the event types of every moved row equal the official types
+(synthetic and stoppage rows, which the official file lacks, aside); no tied `number_event` in the window; after the move a rebound sits between the
+missed shot and the event that had opened the new possession.
+- **74 `corrections.csv` rows in 15 games** (`field` = `number_event` 42 rows: swap or move of the displaced rows within their own run; `clock` 16 and `secs_game` 16 rows:
+  the displaced row takes the next event's time so that time does not run backwards, 0.1 s in 4 cases, 0.3 s in 2, 1-3 s in 8, 6.0 s in 1). The time rows are a judgement:
+  in several games the official clock itself contradicts the official order (a rebound stamped 6 s after the shot that follows it), so "same whole second as official" cannot be the test;
+  the stint code rightly refused the reordered game without it (`ends before it starts`; fail loudly).
+- Result for the season, on a reload of 2017-18 regular: only the 15 games change (26 of 2,460 team-games); implied possession starts 159 → **142**; possessions 242,356 → 242,345; points
+  260,527 unchanged. Against pbpstats: identical team-games 70.37 % → **70.61 %** (within 1: 94.72 % → 94.80 %); 7 team-games become exact (HOU, NOP, ATL, WAS, NYK, LAL, SAC), 3 improve
+  (OKC, PHI, DET), 1 changes from match to -1 (SAS in `0021700086`). The corrected sequence of that game equals pbpstats' sequence possession by possession; the -1 is a difference elsewhere in the game
+  that the old spurious possession had hidden. Check 7 (teams differing by more than 2) goes from 21 to 23 games: in two games one side is now exact and the other side keeps an unrelated +3.
+- What this does not fix: the 92 cases of category 1 (late-added events), the 15 other categories-4/5/6 cases, and the broader pattern: 9,869 of 570,731 rows of 2017-18 sit out of `event_num` order
+  (a reorder rule in `custom` would address all of them; not decided). **[待確認]** the time corrections (clock / secs_game shifts of up to 6 s).

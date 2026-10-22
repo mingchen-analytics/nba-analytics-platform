@@ -5,10 +5,10 @@ Our possessions (`core.possessions`, profile and rules version recorded per row)
 | check | what | level | status | checked | failed |
 |---|---|---|---|---|---|
 | 111 | possession points + FTs outside possessions = final score | hard | pass | 2460 | 0 |
-| 7 | team possession counts in a game differ by <= 2 | warning | fail | 1230 | 21 |
-| 8 | our possession counts vs pbpstats (per team-game) | warning | fail | 2460 | 729 |
+| 7 | team possession counts in a game differ by <= 2 | warning | fail | 1230 | 23 |
+| 8 | our possession counts vs pbpstats (per team-game) | warning | fail | 2460 | 723 |
 
-Check 8: 70.37% of team-games identical to pbpstats, 94.72% within 1. Distribution of (ours - pbpstats): {'-2': 3, '-1': 21, '0': 1731, '1': 578, '2': 109, '3': 14, '4': 3, '5': 1}.
+Check 8: 70.61% of team-games identical to pbpstats, 94.80% within 1. Distribution of (ours - pbpstats): {'-2': 3, '-1': 22, '0': 1737, '1': 573, '2': 108, '3': 13, '4': 3, '5': 1}.
 
 ## Team-games that differ from pbpstats
 
@@ -16,7 +16,6 @@ Reported, never fixed to match (working agreement 11).
 
 | game_id | team (defense) | ours | pbpstats | ours - pbpstats |
 |---|---|---|---|---|
-| `0021700002` | HOU | 101 | 100 | +1 |
 | `0021700004` | IND | 112 | 111 | +1 |
 | `0021700005` | ORL | 104 | 103 | +1 |
 | `0021700008` | MEM | 95 | 94 | +1 |
@@ -50,9 +49,7 @@ Reported, never fixed to match (working agreement 11).
 | `0021700037` | PHX | 103 | 102 | +1 |
 | `0021700039` | MIN | 101 | 100 | +1 |
 | `0021700039` | OKC | 101 | 100 | +1 |
-| `0021700040` | NOP | 105 | 104 | +1 |
 | `0021700041` | DET | 96 | 97 | -1 |
-| `0021700042` | ATL | 100 | 99 | +1 |
 | `0021700042` | MIA | 98 | 100 | -2 |
 | `0021700044` | CHA | 99 | 98 | +1 |
 | `0021700045` | DAL | 102 | 101 | +1 |
@@ -83,12 +80,11 @@ Reported, never fixed to match (working agreement 11).
 | `0021700074` | MIN | 97 | 96 | +1 |
 | `0021700074` | OKC | 98 | 97 | +1 |
 | `0021700075` | GSW | 107 | 104 | +3 |
-| `0021700075` | WAS | 105 | 104 | +1 |
 | `0021700076` | LAL | 102 | 101 | +1 |
 | `0021700077` | CLE | 99 | 101 | -2 |
 | `0021700078` | MIA | 92 | 90 | +2 |
 | `0021700079` | CHI | 95 | 92 | +3 |
-| `0021700079` | OKC | 95 | 92 | +3 |
+| `0021700079` | OKC | 94 | 92 | +2 |
 | `0021700080` | HOU | 94 | 93 | +1 |
 | `0021700081` | DAL | 96 | 95 | +1 |
 | `0021700081` | PHI | 99 | 95 | +4 |
@@ -96,11 +92,11 @@ Reported, never fixed to match (working agreement 11).
 | `0021700084` | DET | 96 | 95 | +1 |
 | `0021700085` | ATL | 102 | 100 | +2 |
 | `0021700086` | IND | 99 | 97 | +2 |
+| `0021700086` | SAS | 96 | 97 | -1 |
 | `0021700088` | ORL | 107 | 106 | +1 |
 | `0021700089` | SAC | 97 | 96 | +1 |
 | `0021700089` | WAS | 98 | 95 | +3 |
 | `0021700090` | CLE | 99 | 98 | +1 |
-| `0021700090` | NYK | 100 | 99 | +1 |
 | `0021700091` | DET | 95 | 94 | +1 |
 | `0021700092` | BOS | 96 | 93 | +3 |
 | `0021700092` | SAS | 95 | 94 | +1 |
@@ -112,7 +108,6 @@ Reported, never fixed to match (working agreement 11).
 | `0021700099` | POR | 94 | 93 | +1 |
 | `0021700103` | MIL | 95 | 93 | +2 |
 | `0021700104` | DET | 97 | 96 | +1 |
-| `0021700104` | LAL | 97 | 96 | +1 |
 | `0021700107` | ATL | 113 | 111 | +2 |
 | `0021700108` | PHX | 100 | 98 | +2 |
 | `0021700113` | NOP | 102 | 101 | +1 |
@@ -187,14 +182,13 @@ Reported, never fixed to match (working agreement 11).
 | `0021700189` | MIA | 98 | 96 | +2 |
 | `0021700190` | IND | 98 | 96 | +2 |
 | `0021700191` | DAL | 100 | 99 | +1 |
-| `0021700192` | SAC | 92 | 91 | +1 |
 | `0021700192` | WAS | 91 | 90 | +1 |
 | `0021700196` | LAL | 105 | 104 | +1 |
 | `0021700196` | PHX | 105 | 104 | +1 |
 | `0021700198` | DEN | 96 | 94 | +2 |
 | `0021700198` | POR | 96 | 94 | +2 |
 | `0021700199` | ORL | 100 | 99 | +1 |
-| `0021700200` | PHI | 100 | 98 | +2 |
+| `0021700200` | PHI | 99 | 98 | +1 |
 | `0021700201` | BKN | 101 | 100 | +1 |
 | `0021700201` | BOS | 101 | 100 | +1 |
 | `0021700202` | HOU | 101 | 100 | +1 |
@@ -257,7 +251,7 @@ Reported, never fixed to match (working agreement 11).
 | `0021700296` | SAC | 91 | 90 | +1 |
 | `0021700300` | WAS | 87 | 86 | +1 |
 | `0021700302` | MIL | 97 | 95 | +2 |
-| `0021700303` | DET | 109 | 107 | +2 |
+| `0021700303` | DET | 108 | 107 | +1 |
 | `0021700303` | PHX | 108 | 105 | +3 |
 | `0021700309` | MIN | 96 | 94 | +2 |
 | `0021700312` | LAL | 114 | 112 | +2 |
