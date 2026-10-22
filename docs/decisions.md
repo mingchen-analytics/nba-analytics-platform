@@ -1135,7 +1135,7 @@ right order. Each case was checked against the official file (shufinskiy `nbasta
 (synthetic and stoppage rows, which the official file lacks, aside); no tied `number_event` in the window; after the move a rebound sits between the
 missed shot and the event that had opened the new possession.
 - **74 `corrections.csv` rows in 15 games** (`field` = `number_event` 42 rows: swap or move of the displaced rows within their own run; `clock` 16 and `secs_game` 16 rows:
-  the displaced row takes the next event's time so that time does not run backwards, 0.1 s in 4 cases, 0.3 s in 2, 1-3 s in 8, 6.0 s in 1). The time rows are a judgement:
+  the displaced row takes the next event's time so that time does not run backwards; sizes: 0.1 s in 2 rows, 0.3 s in 2, 1 s in 8, 2 s in 2, 3 s in 1, 6 s in 1; every row is listed with its neighbours in `docs/validation/corrections_2017_18_audit.md`). The time rows are a judgement:
   in several games the official clock itself contradicts the official order (a rebound stamped 6 s after the shot that follows it), so "same whole second as official" cannot be the test;
   the stint code rightly refused the reordered game without it (`ends before it starts`; fail loudly).
 - Result for the season, on a reload of 2017-18 regular: only the 15 games change (26 of 2,460 team-games); implied possession starts 159 → **142**; possessions 242,356 → 242,345; points
@@ -1153,3 +1153,9 @@ exists (for example the 2024-25 playoff game without play-by-play). Fix: the pos
 (`checks.check_111_known_gaps`) used by the pipeline and by a one-off repair (`python -m nba_platform.validate.fix_check_ids`, safe to repeat):
 60 possession rows moved to 112, 60 known-gaps rows rewritten from `core.known_gaps`; the season report has a new column "112 poss. points". Nothing in the data changed; earlier
 log entries that say "check 111" for the possession points check mean 112 now.
+
+- Follow-up (owner asked whether 6 s is too much and whether it is only an error): the largest shift (`0021700079`, event 90) is a rebound stamped 6 s after the made shot it precedes in the official order, and
+  that shot was assisted by the rebounder: a player cannot assist before he has the ball, so the rebound's stamp is wrong and the shot's is right. The same logic holds for the other rows: the event after the moved
+  rebound is by the rebounder's team in 14 of 16 rows (the other two are a foul on the rebounder's team and a tip-in that precedes a heave). The official file shows the same inconsistent stamps, so the error is NBA.com's
+  stat-keeping, not an artefact of the source. The new time is a lower bound (the next event's time), not an estimate of the true time. Effect: no lineup change (no substitution lies between the old and the new time except one
+  rebound that now precedes a substitution at the same second), no heave flag changes; only the start time of 16 possessions of 7.3 million moves, by at most 6 s.
