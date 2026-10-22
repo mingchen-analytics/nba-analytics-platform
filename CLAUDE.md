@@ -314,8 +314,9 @@ Numbered checks (level shown where the review set it; others pending owner confi
 - [x] **Phase 2** — Shots table from shufinskiy; check 10.
 - [x] **Phase 3** — Possessions + checks 7–8 (done 2026-10-22 for all 60 season files, profile
       `pbpstats_compat`; `custom` profile and the A/B/C substitution credit still open).
-- [ ] **Phase 4** — Stints (done, all seasons) + on/off in SQL (next); first Streamlit page (player on/off, with
-      possession counts shown next to every rate).
+- [x] **Phase 4** — Stints + on/off (done 2026-10-22: `marts.player_onoff_season`, `lineup_stats`, `pair_stats`,
+      `team_efficiency_season`, approved by the owner; credit method `pbpstats_hybrid` while A/B/C stays open);
+      Streamlit pages Team efficiency, On/off, Lineups, with possession counts next to every rate.
 - [x] **Phase 5** — Scale to all seasons; cross-source check vs BigDataBall.
 - [ ] **Phase 6** — RAPM (Ridge; separate O/D; multi-season windows; home court;
       low-minute player bucket). **No preset λ range**: choose λ by cross-validation

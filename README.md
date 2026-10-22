@@ -2,7 +2,7 @@
 
 A personal NBA data platform built from raw play-by-play: a validated event database for
 **1996-97 → 2025-26**, my own **stint and possession logic** checked game by game against an
-independent reference, and a **Streamlit dashboard** on top. On/off and RAPM are next.
+independent reference, on/off and lineup tables built on those possessions, and a **Streamlit dashboard** on top. RAPM is next.
 Portfolio project by Ming Chen (Wake Forest MSBA, sports analytics).
 
 ## Why
@@ -18,7 +18,8 @@ tested, and versioned, so each number can be explained and reproduced.
   37,986 games, 17.5 M events, 6.3 M shots. A rebuild from zero reproduced all 11 loaded tables exactly
   (row counts and content hashes; checked before the stint and possession tables were added).
 - **Own stints and possessions for every season**: 1.16 M stints and 7.3 M possessions, each
-  row stamped with the `rules_version` and rule profile that built it.
+  row stamped with the `rules_version` and rule profile that built it; on/off, five-man lineup, two-man pair
+  and team efficiency tables are built on them, with conservation checks (every possession and point credited once).
 - **Every difference from the reference is investigated, not tuned away.** Possession counts are
   compared with [pbpstats](https://github.com/dblackrun/pbpstats) per team and game; the gaps that
   remain were traced to concrete causes (see below) and documented instead of bending the rules to
@@ -27,7 +28,7 @@ tested, and versioned, so each number can be explained and reproduced.
   pbpstats) and `custom` (my own choices), with the rule "copy first, then deviate, one documented
   change at a time".
 - **Fail loudly**: an unmapped player, team or event type stops the load; data is never silently
-  dropped or "fixed" to make a check pass. 262 automated tests.
+  dropped or "fixed" to make a check pass. 290 automated tests.
 
 ## Possession results
 
@@ -46,10 +47,11 @@ in that season (analysis in `docs/decisions.md`, 2026-10-22).
 
 ## Dashboard
 
-Seven read-only Streamlit pages (`app/`): data health, reference data, games (official box score and
+Ten read-only Streamlit pages (`app/`): data health, reference data, games (official box score and
 score-margin chart), players (leaderboard and game log), teams, shooting (zone frequency and accuracy
-with league percentiles, shot chart) and tracking / hustle. Layers 2 and 3 (on/off, lineups, RAPM)
-are specified in `docs/dashboard_spec.md`. Every number is labelled by where it comes from (official
+with league percentiles, shot chart), tracking / hustle, and from our own possessions: team efficiency
+(with end-of-period-heave and garbage-time switches), on/off and lineups (five-man and pairs). Layer 3
+(RAPM) is specified in `docs/dashboard_spec.md`. Every number is labelled by where it comes from (official
 NBA.com value, counted from my play-by-play, or model).
 
 | | |
@@ -72,9 +74,10 @@ DuckDB  core:       games · events · shots · teams · players · stints · po
         staging:    event_lineups (10 players on court per event)
         reference:  pbpstats possessions, NBA.com official possessions / tracking / hustle /
                     play types, matchups (comparison only, never feeds core)
-        marts:      player / team box scores, shot zones, tracking (what the app reads)
+        marts:      player / team box scores, shot zones, tracking, on/off, lineups, pairs,
+                    team efficiency (what the app reads)
         validation: one row per check per season
-   │  next: on/off → lineups → RAPM
+   │  next: RAPM
    ▼
 Streamlit (read-only)
 ```
@@ -189,9 +192,10 @@ if anything fails. Install it once per clone: `git config core.hooksPath scripts
 - [x] NBA.com reference data (official possessions, tracking, hustle, shot context, play types, matchups)
 - [x] Stints and possessions for all 60 season files (`pbpstats_compat` profile)
 - [x] Dashboard layer 1: games, players, teams, shooting, tracking
-- [ ] `custom` profile: first documented deviations; compare the three ways to credit a possession
-      when a substitution happens between free throws
-- [ ] On/off and lineups, then RAPM (ridge, penalty chosen by game-grouped cross-validation)
+- [x] On/off, five-man lineups, two-man pairs and team efficiency, with dashboard pages
+- [ ] `custom` profile: first documented deviations; choose how to credit a possession when a substitution
+      happens between free throws (option A vs the pbpstats hybrid already compared: `docs/validation/onoff_credit_methods.md`)
+- [ ] RAPM (ridge, penalty chosen by game-grouped cross-validation)
 - [ ] Playoff Matchup Adjustment Tracker and video tracking, linked by shared IDs
 
 More: `docs/README.md` is the map of the documentation.

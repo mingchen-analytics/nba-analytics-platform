@@ -1,7 +1,7 @@
 """Teams (layer 1): season table, roster and shot mix of a team.
 
 Opens the DuckDB database **read-only** and reads only marts. Pace and ratings use NBA.com's
-official possession counts (labelled "official") until our own possessions exist.
+official possession counts (labelled "official"); ours are on the Team efficiency page.
 """
 
 from __future__ import annotations
@@ -31,8 +31,8 @@ def main() -> None:
     if not DB_PATH.exists():
         st.error("Database not found. Build it with `python -m nba_platform.pipeline --all`.")
         return
-    st.caption("Totals from the official NBA.com box score. ORTG / DRTG / pace use NBA.com's official possession "
-               "counts (**official**, not ours); they are replaced once our own possessions exist.")
+    st.caption("Totals from the official NBA.com box score. ORTG / DRTG / pace here use NBA.com's official possession "
+               "counts (**official**, not ours); ratings from our own possessions are on the **Team efficiency** page.")
 
     c1, c2 = st.columns(2)
     season_type = c1.radio("Season type", ["regular", "playoffs"], horizontal=True)

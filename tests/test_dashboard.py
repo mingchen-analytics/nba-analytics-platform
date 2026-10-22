@@ -136,3 +136,66 @@ def test_tracking_page_is_read_only():
     text = TRACKING_PAGE.read_text(encoding="utf-8").upper()
     assert "READ_ONLY=TRUE" in text
     assert not any(sql in text for sql in ("INSERT INTO", "UPDATE ", "DELETE FROM", "CREATE ", "DROP "))
+
+
+LAYER2_PAGES = {name: APP.parent / "pages" / name for name in ("7_Team_efficiency.py", "8_On_off.py", "9_Lineups.py")}
+
+
+def _layer2_built() -> bool:
+    import duckdb
+
+    con = duckdb.connect(str(DB_PATH), read_only=True)
+    try:
+        return con.execute("""SELECT count(*) FROM information_schema.tables WHERE table_schema = 'marts'
+                              AND table_name IN ('team_efficiency_season', 'player_onoff_season', 'lineup_stats', 'pair_stats')""").fetchone()[0] == 4
+    finally:
+        con.close()
+
+
+def test_team_efficiency_page_switches_versions():
+    from streamlit.testing.v1 import AppTest
+
+    if not _layer2_built():
+        pytest.skip("layer 2 marts not built")
+    at = AppTest.from_file(str(LAYER2_PAGES["7_Team_efficiency.py"]), default_timeout=120).run()
+    assert not at.exception, at.exception
+    assert at.title[0].value == "Team efficiency" and len(at.dataframe[0].value) >= 29
+    for label in ("All possessions", "Without heaves and garbage time"):
+        at.radio[1].set_value(label).run()
+        assert not at.exception, at.exception
+    at.radio[0].set_value("playoffs").run()
+    assert not at.exception, at.exception
+
+
+def test_on_off_page_renders_board_and_history():
+    from streamlit.testing.v1 import AppTest
+
+    if not _layer2_built():
+        pytest.skip("layer 2 marts not built")
+    at = AppTest.from_file(str(LAYER2_PAGES["8_On_off.py"]), default_timeout=120).run()
+    assert not at.exception, at.exception
+    assert at.title[0].value == "On/off" and len(at.dataframe) == 2 and len(at.dataframe[0].value) > 50
+    at.toggle[0].set_value(False).run()
+    assert not at.exception, at.exception
+    at.radio[0].set_value("playoffs").run()
+    assert not at.exception, at.exception
+
+
+def test_lineups_page_renders_both_tabs():
+    from streamlit.testing.v1 import AppTest
+
+    if not _layer2_built():
+        pytest.skip("layer 2 marts not built")
+    at = AppTest.from_file(str(LAYER2_PAGES["9_Lineups.py"]), default_timeout=120).run()
+    assert not at.exception, at.exception
+    assert at.title[0].value == "Lineups" and len(at.dataframe) == 2
+    assert len(at.dataframe[0].value) >= 1 and len(at.dataframe[1].value) >= 10
+    at.radio[0].set_value("playoffs").run()
+    assert not at.exception, at.exception
+
+
+def test_layer2_pages_are_read_only_and_use_marts():
+    for page in LAYER2_PAGES.values():
+        text = page.read_text(encoding="utf-8").upper()
+        assert "READ_ONLY=TRUE" in text and "CORE.POSSESSIONS" not in text and "CORE.STINTS" not in text
+        assert not any(sql in text for sql in ("INSERT INTO", "UPDATE ", "DELETE FROM", "CREATE ", "DROP "))
