@@ -85,3 +85,10 @@ def test_task_c_loads_regular_and_playoff_matchups(tmp_path, monkeypatch):
     rows = con.execute("SELECT season_type, season_end_year, count(*) FROM reference.matchups GROUP BY ALL ORDER BY 1").fetchall()
     assert rows == [("playoffs", 2025, 1), ("regular", 2025, 1)]
     assert res["numbers"]["rows"] == 2
+
+
+def test_parse_deadline_time_of_day_and_full_date():
+    now = datetime(2026, 10, 23, 13, 0)
+    assert ob.parse_deadline("21:30", now) == datetime(2026, 10, 23, 21, 30)
+    assert ob.parse_deadline("08:00", now) == datetime(2026, 10, 24, 8, 0)             # already past today: tomorrow
+    assert ob.parse_deadline("2026-10-24 21:30", now) == datetime(2026, 10, 24, 21, 30)  # exact moment

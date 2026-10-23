@@ -612,11 +612,21 @@ def keep_awake() -> bool:
     return bool(ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED))
 
 
+def parse_deadline(text: str, now: datetime | None = None) -> datetime:
+    """'HH:MM' = the next time the clock shows it (today, or tomorrow if already past); 'YYYY-MM-DD HH:MM' = exactly that moment."""
+    now = now or datetime.now()
+    if len(text.strip()) > 5:
+        return datetime.strptime(text.strip(), "%Y-%m-%d %H:%M")
+    hh, mm = map(int, text.split(":"))
+    dl = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    return dl if dl > now else dl + timedelta(days=1)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--trial", action="store_true")
     ap.add_argument("--only", default=TASKS)
-    ap.add_argument("--deadline", default="08:00", help="local time to stop task H")
+    ap.add_argument("--deadline", default="08:00", help="when to stop task H: local time HH:MM (next occurrence) or 'YYYY-MM-DD HH:MM'")
     ap.add_argument("--force", action="store_true", help="re-run tasks already marked done")
     ap.add_argument("--regular-years", default="2026,2025",
                     help="season end years whose regular season task H also fetches, newest first (owner priority 2026-10-18: 2026,2025)")
@@ -630,9 +640,7 @@ def main() -> None:
     ctx.trial, ctx.started, ctx.tag = args.trial, datetime.now(), args.tag
     ctx.regular_years = [int(y) for y in args.regular_years.split(",")]
     ctx.log_path = LOGS / f"{args.tag}{suffix}.log"
-    hh, mm = map(int, args.deadline.split(":"))
-    dl = datetime.now().replace(hour=hh, minute=mm, second=0, microsecond=0)
-    ctx.deadline = dl if dl > datetime.now() else dl + timedelta(days=1)
+    ctx.deadline = parse_deadline(args.deadline)
     ctx.nba = Nba(deadline=ctx.deadline)
     logging.basicConfig(filename=ctx.log_path, level=logging.INFO, encoding="utf-8",
                         format="%(asctime)s %(levelname)s %(message)s")
