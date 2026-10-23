@@ -4,8 +4,8 @@ Loaded from cached raw JSON by `nba_platform.reference.boxscores`. Numbers only.
 
 | table | files | empty shells | games | player rows |
 |---|---|---|---|---|
-| `reference.nba_box_tracking` | 8,961 | 0 | 8,961 | 234,248 |
-| `reference.nba_box_hustle` | 8,791 | 0 | 8,791 | 177,854 |
+| `reference.nba_box_tracking` | 9,039 | 0 | 9,039 | 236,204 |
+| `reference.nba_box_hustle` | 8,869 | 0 | 8,869 | 179,446 |
 
 ## Tracking-box minutes (to the second) vs our play-by-play minutes
 
@@ -32,6 +32,6 @@ Players with time on court in either source. A third, independent check of on-co
 | 2022-23 | regular | 1,230 | 25,892 | 100% | 100.0% | 100.0% | 0.0% | 0 | 0 |
 | 2021-22 | regular | 1,230 | 26,036 | 100% | 100.0% | 100.0% | 0.0% | 0 | 1 |
 | 2020-21 | regular | 1,080 | 23,054 | 100% | 100.0% | 100.0% | 0.0% | 0 | 1 |
-| 2019-20 | regular | 643 | 13,654 | 100% | 100.0% | 100.0% | 0.0% | 0 | 1 |
+| 2019-20 | regular | 721 | 15,305 | 100% | 100.0% | 100.0% | 0.0% | 0 | 1 |
 
 Box-score games not in `core.games`: 0.
