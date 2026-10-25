@@ -17,6 +17,15 @@ Units: coefficients are points per possession; the reported ratings are per 100 
 points per 100 possessions a player adds on offense, `d_rapm` the points per 100 he prevents on defense
 (positive = good; the sign of the defense coefficient is flipped), `rapm` = `o_rapm + d_rapm`.
 
+Two variants of the observation (`variant` in the mart): `raw` uses the points that were scored; `luck_adjusted` replaces the
+result of every three-point attempt by 3 x the shooter's expected three-point percentage, and of every free throw by his expected free-throw
+percentage (his own season's rate shrunk toward the league's with a prior of `luck_adjustment.*_prior_attempts` attempts). Whether
+a three goes in is mostly the shooter's and luck's doing, so the defenders' share of it is mostly noise; adjusting it is the usual
+practice of EPM-like metrics. A shot whose type is unknown (no row in `core.shots`) keeps its actual result: never guessed.
+
+Windows: a single season, and the three seasons ending in that season (a trailing window, so that a window never uses the future).
+`--all-windows` fits every one of them for both variants (resumable) and `--forecast-report` checks them out of sample.
+
 Standard errors come from a bootstrap of whole games: the games are resampled with replacement (the number of times
 a game is drawn becomes the weight of its possessions), the model is refitted with the same penalty, and the standard
 error is the standard deviation of a player's rating over the resamples. They describe sampling noise only; they do
@@ -26,7 +35,8 @@ Prototype: `marts.player_rapm` is a new table, waiting for the owner's approval.
 shows cross-validation, split-half reliability, the standard errors and how much the choices matter.
 
 Usage:
-    python -m nba_platform.metrics.rapm [--seasons 2025:regular,2024:regular] [--report]   # report: docs/validation/rapm_<window>.md
+    python -m nba_platform.metrics.rapm [--seasons 2025:regular,2024:regular] [--variant raw|luck_adjusted] [--report]
+    python -m nba_platform.metrics.rapm --all-windows [--forecast-report]
 """
 
 from __future__ import annotations
@@ -34,6 +44,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -59,15 +70,52 @@ class RapmError(RuntimeError):
 # ------------------------------------------------------------------ data
 
 
-def load_possessions(con, seasons: list[tuple[int, str]], cfg: dict) -> pd.DataFrame:
-    """One row per possession of the window: game_id, season_end_year, points, offense_is_home, off_1..5, def_1..5.
+VARIANTS = ("raw", "luck_adjusted")
 
-    The five players of each side are those of the stint on the floor when the possession ends.
+
+def _luck_ctes(seasons: list[tuple[int, str]], three_prior: float, ft_prior: float) -> str:
+    """CTEs `shots`, `rate`, `adj`: per possession, the expected minus the actual points of its three-point attempts and free throws.
+
+    A shooter's expected rate is his season's (made + prior x league rate) / (attempts + prior); only attempts that have a row in
+    core.shots (the type is known) and a shooter are adjusted.
+    """
+    lit = " OR ".join(f"(g.season_end_year = {int(y)} AND g.season_type = '{t}')" for y, t in seasons)
+    return f"""
+        shots AS (
+            SELECT e.game_id, e.possession_id, e.player1_id AS shooter, g.season_end_year AS y, g.season_type AS t,
+                   CAST(e.points > 0 AS INTEGER) AS made, e.points AS pts, 'three' AS kind
+            FROM core.events e JOIN core.shots sh ON sh.game_id = e.game_id AND sh.source_event_num = e.source_event_num
+            JOIN core.games g ON g.game_id = e.game_id
+            WHERE e.event_type IN ('shot_made', 'shot_missed') AND sh.shot_type = '3PT Field Goal' AND e.player1_id IS NOT NULL AND ({lit})
+            UNION ALL
+            SELECT e.game_id, e.possession_id, e.player1_id, g.season_end_year, g.season_type, CAST(e.points > 0 AS INTEGER), e.points, 'ft'
+            FROM core.events e JOIN core.games g ON g.game_id = e.game_id
+            WHERE e.event_type = 'free_throw' AND e.possession_id IS NOT NULL AND e.player1_id IS NOT NULL AND ({lit})),
+        league AS (SELECT y, t, kind, sum(made) * 1.0 / count(*) AS lg FROM shots GROUP BY ALL),
+        rate AS (SELECT c.y, c.t, c.kind, c.shooter, (c.made + k.prior * l.lg) / (c.att + k.prior) AS p
+                 FROM (SELECT y, t, kind, shooter, sum(made) AS made, count(*) AS att FROM shots GROUP BY ALL) c
+                 JOIN league l USING (y, t, kind) JOIN (VALUES ('three', {float(three_prior)}), ('ft', {float(ft_prior)})) k(kind, prior) USING (kind)),
+        adj AS (SELECT s.game_id, s.possession_id, sum(CASE WHEN s.kind = 'three' THEN 3.0 ELSE 1.0 END * r.p - s.pts) AS adj
+                FROM shots s JOIN rate r ON r.y = s.y AND r.t = s.t AND r.kind = s.kind AND r.shooter = s.shooter
+                WHERE s.possession_id IS NOT NULL GROUP BY 1, 2)"""
+
+
+def load_possessions(con, seasons: list[tuple[int, str]], cfg: dict, luck: bool = False) -> pd.DataFrame:
+    """One row per possession of the window: game_id, season_end_year, points, points_adj, offense_is_home, off_1..5, def_1..5.
+
+    The five players of each side are those of the stint on the floor when the possession ends. `points_adj` equals `points`
+    unless `luck` is set (see the module docstring).
     """
     if not seasons:
         raise RapmError("no seasons given")
+    if any(t not in ("regular", "playoffs") for _, t in seasons):
+        raise RapmError(f"unknown season type in {seasons}")
     where = " OR ".join(["(g.season_end_year = ? AND g.season_type = ?)"] * len(seasons))
     params = [x for season in seasons for x in season]
+    luck_cfg = cfg.get("luck_adjustment", {})
+    extra_ctes = f", {_luck_ctes(seasons, luck_cfg['three_prior_attempts'], luck_cfg['ft_prior_attempts'])}" if luck else ""
+    adj_join = "LEFT JOIN adj a ON a.game_id = p.game_id AND a.possession_id = p.possession_id" if luck else ""
+    points_adj = "p.points + coalesce(a.adj, 0)" if luck else "CAST(p.points AS DOUBLE)"
     flags = ""
     if cfg["exclude_end_of_period_heave"]:
         flags += " AND NOT p.is_end_of_period_heave"
@@ -76,13 +124,13 @@ def load_possessions(con, seasons: list[tuple[int, str]], cfg: dict) -> pd.DataF
     home, away = "s.home_p1, s.home_p2, s.home_p3, s.home_p4, s.home_p5", "s.away_p1, s.away_p2, s.away_p3, s.away_p4, s.away_p5"
     df = con.execute(f"""
         WITH e AS (SELECT game_id, possession_id, arg_max(stint_id, segment_seq) AS end_stint
-                   FROM core.possession_stint_segments GROUP BY ALL)
-        SELECT p.game_id, g.season_end_year, p.points, p.offense_team_id = g.home_team_id AS offense_is_home,
+                   FROM core.possession_stint_segments GROUP BY ALL){extra_ctes}
+        SELECT p.game_id, g.season_end_year, p.points, {points_adj} AS points_adj, p.offense_team_id = g.home_team_id AS offense_is_home,
                CASE WHEN p.offense_team_id = g.home_team_id THEN [{home}] ELSE [{away}] END AS off,
                CASE WHEN p.offense_team_id = g.home_team_id THEN [{away}] ELSE [{home}] END AS def
         FROM core.possessions p JOIN core.games g USING (game_id)
         JOIN e ON e.game_id = p.game_id AND e.possession_id = p.possession_id
-        JOIN core.stints s ON s.game_id = p.game_id AND s.stint_id = e.end_stint
+        JOIN core.stints s ON s.game_id = p.game_id AND s.stint_id = e.end_stint {adj_join}
         WHERE ({where}){flags}
         ORDER BY p.game_id, p.possession_id""", params).df()
     if df.empty:
@@ -180,8 +228,9 @@ def bootstrap_se(x, y: np.ndarray, groups: np.ndarray, alpha: float, n_own: int,
     return pd.DataFrame({"o_se": o.std(axis=0, ddof=1), "d_se": d.std(axis=0, ddof=1), "rapm_se": (o + d).std(axis=0, ddof=1)})
 
 
-def fit(obs: pd.DataFrame, cfg: dict, alpha: float | None = None, bootstrap: int = 0) -> dict:
-    """Fit RAPM on possession observations. Returns players (DataFrame), alpha, cv, home_points, n_obs.
+def fit(obs: pd.DataFrame, cfg: dict, alpha: float | None = None, bootstrap: int = 0, y_col: str = "points") -> dict:
+    """Fit RAPM on possession observations (the outcome is the column `y_col`: points, or points_adj for the luck-adjusted variant).
+    Returns players (DataFrame), alpha, cv, home_points, n_obs.
 
     With `bootstrap` > 0 the players also carry o_se, d_se and rapm_se (bootstrap of whole games, same penalty)."""
     players = bucket_players(obs, int(cfg["min_possessions_for_own_column"]))
@@ -189,7 +238,7 @@ def fit(obs: pd.DataFrame, cfg: dict, alpha: float | None = None, bootstrap: int
     if len(own) == 0:
         raise RapmError("no player reaches min_possessions_for_own_column")
     x, names = design_matrix(obs, own)
-    y = obs["points"].to_numpy(dtype=float)
+    y = obs[y_col].to_numpy(dtype=float)
     cv = None
     if alpha is None:
         cv = cv_alpha(x, y, obs["game_id"].to_numpy(), cfg)
@@ -209,14 +258,14 @@ def fit(obs: pd.DataFrame, cfg: dict, alpha: float | None = None, bootstrap: int
             "replacement_o": 100.0 * float(coef["off:replacement"]), "replacement_d": -100.0 * float(coef["def:replacement"])}
 
 
-def split_half(obs: pd.DataFrame, cfg: dict, alpha: float) -> dict:
+def split_half(obs: pd.DataFrame, cfg: dict, alpha: float, y_col: str = "points") -> dict:
     """Reliability: fit on two random halves of the games with the same penalty; correlate the players in both."""
     games = np.array(obs["game_id"].unique(), dtype=object)
     rng = np.random.default_rng(int(cfg["seed"]))
     rng.shuffle(games)
     half = set(games[: len(games) // 2])
     mask = obs["game_id"].isin(half).to_numpy()
-    a, b = fit(obs[mask], cfg, alpha)["players"], fit(obs[~mask], cfg, alpha)["players"]
+    a, b = fit(obs[mask], cfg, alpha, y_col=y_col)["players"], fit(obs[~mask], cfg, alpha, y_col=y_col)["players"]
     m = a.merge(b, on="player_id", suffixes=("_a", "_b"))
     m = m[(m["off_poss_a"] + m["def_poss_a"] >= cfg["split_half_min_possessions"]) & (m["off_poss_b"] + m["def_poss_b"] >= cfg["split_half_min_possessions"])]
     if len(m) < 3:
@@ -229,12 +278,19 @@ def split_half(obs: pd.DataFrame, cfg: dict, alpha: float) -> dict:
 
 
 DDL = """(
-    window_id TEXT NOT NULL, player_id INTEGER NOT NULL, off_poss INTEGER NOT NULL, def_poss INTEGER NOT NULL,
+    window_id TEXT NOT NULL, variant TEXT NOT NULL, player_id INTEGER NOT NULL, off_poss INTEGER NOT NULL, def_poss INTEGER NOT NULL,
     o_rapm DOUBLE NOT NULL, d_rapm DOUBLE NOT NULL, rapm DOUBLE NOT NULL, o_se DOUBLE, d_se DOUBLE, rapm_se DOUBLE,
     alpha DOUBLE NOT NULL, n_obs INTEGER NOT NULL, home_points_per100 DOUBLE NOT NULL,
     credit_method TEXT NOT NULL, exclude_end_of_period_heave BOOLEAN NOT NULL, exclude_garbage_time BOOLEAN NOT NULL,
-    min_possessions_for_own_column INTEGER NOT NULL, rules_version TEXT NOT NULL, rules_profile TEXT NOT NULL,
-    PRIMARY KEY (window_id, player_id))"""
+    min_possessions_for_own_column INTEGER NOT NULL, luck_three_prior INTEGER, luck_ft_prior INTEGER,
+    rules_version TEXT NOT NULL, rules_profile TEXT NOT NULL,
+    PRIMARY KEY (window_id, variant, player_id))"""
+
+DDL_WINDOWS = """(
+    window_id TEXT NOT NULL, variant TEXT NOT NULL, n_obs INTEGER NOT NULL, players INTEGER NOT NULL, alpha DOUBLE NOT NULL,
+    cv_improvement_pct DOUBLE, split_half_players INTEGER, split_half_r DOUBLE, split_half_r_o DOUBLE, split_half_r_d DOUBLE,
+    home_points_per100 DOUBLE NOT NULL, rules_version TEXT NOT NULL, rules_profile TEXT NOT NULL,
+    PRIMARY KEY (window_id, variant))"""
 
 
 def window_id(seasons: list[tuple[int, str]]) -> str:
@@ -245,61 +301,139 @@ def window_id(seasons: list[tuple[int, str]]) -> str:
     return f"{label} {types.pop()}" if len(types) == 1 else ", ".join(f"{season_label(y)} {t}" for y, t in seasons)
 
 
-def build(con, seasons: list[tuple[int, str]], cfg: dict | None = None) -> dict:
-    """Fit one window and write its rows to marts.player_rapm (replacing that window's rows). Returns a summary."""
-    cfg = cfg or load_rules()["rapm"]
+def _ensure_tables(con) -> None:
+    """Create the RAPM tables; a table built before `variant` existed is migrated (its rows are the raw variant)."""
+    con.execute("CREATE SCHEMA IF NOT EXISTS marts")
+    old = con.execute("SELECT count(*) FROM information_schema.columns WHERE table_schema = 'marts' AND table_name = 'player_rapm'").fetchone()[0]
+    has_variant = con.execute("SELECT count(*) FROM information_schema.columns WHERE table_schema = 'marts' AND table_name = 'player_rapm' "
+                              "AND column_name = 'variant'").fetchone()[0]
+    if old and not has_variant:
+        con.execute("BEGIN")
+        con.execute(f"CREATE TABLE marts.player_rapm_new {DDL}")
+        have = {r[0] for r in con.execute("DESCRIBE marts.player_rapm").fetchall()}
+        cols = [c for c in ("window_id", "player_id", "off_poss", "def_poss", "o_rapm", "d_rapm", "rapm", "o_se", "d_se", "rapm_se", "alpha", "n_obs",
+                            "home_points_per100", "credit_method", "exclude_end_of_period_heave", "exclude_garbage_time",
+                            "min_possessions_for_own_column", "rules_version", "rules_profile") if c in have]
+        con.execute(f"INSERT INTO marts.player_rapm_new ({', '.join(cols)}, variant) SELECT {', '.join(cols)}, 'raw' FROM marts.player_rapm")
+        con.execute("DROP TABLE marts.player_rapm")
+        con.execute("ALTER TABLE marts.player_rapm_new RENAME TO player_rapm")
+        con.execute("COMMIT")
+    con.execute(f"CREATE TABLE IF NOT EXISTS marts.player_rapm {DDL}")
+    con.execute(f"CREATE TABLE IF NOT EXISTS marts.rapm_windows {DDL_WINDOWS}")
+
+
+def _version(con) -> tuple[str, str]:
     versions = con.execute("SELECT DISTINCT rules_version, rules_profile FROM core.possessions").fetchall()
     if len(versions) != 1:
         raise RapmError(f"core.possessions holds {len(versions)} rules versions / profiles; expected exactly one: {versions}")
-    obs = load_possessions(con, seasons, cfg)
-    res = fit(obs, cfg, bootstrap=int(cfg.get("bootstrap_samples", 0)))
+    return versions[0]
+
+
+def build(con, seasons: list[tuple[int, str]], cfg: dict | None = None, variant: str = "raw", diagnostics: bool = False) -> dict:
+    """Fit one window of one variant and write its rows to marts.player_rapm (replacing that window's rows of that variant).
+
+    With `diagnostics`, the cross-validation gain and the split-half reliability are stored in marts.rapm_windows. Returns a summary.
+    """
+    if variant not in VARIANTS:
+        raise RapmError(f"unknown variant {variant!r}; known: {VARIANTS}")
+    cfg = cfg or load_rules()["rapm"]
+    version = _version(con)
+    luck = variant == "luck_adjusted"
+    y_col = "points_adj" if luck else "points"
+    obs = load_possessions(con, seasons, cfg, luck=luck)
+    res = fit(obs, cfg, bootstrap=int(cfg.get("bootstrap_samples", 0)), y_col=y_col)
     wid = window_id(seasons)
     rows = res["players"].copy()
     for c in ("o_se", "d_se", "rapm_se"):
         if c not in rows:
             rows[c] = np.nan
     rows = rows[["player_id", "off_poss", "def_poss", "o_rapm", "d_rapm", "rapm", "o_se", "d_se", "rapm_se"]]
+    rows.insert(0, "variant", variant)
     rows.insert(0, "window_id", wid)
+    luck_cfg = cfg.get("luck_adjustment", {})
     for k, v in (("alpha", res["alpha"]), ("n_obs", res["n_obs"]), ("home_points_per100", res["home_points_per100"]),
                  ("credit_method", cfg["credit"]), ("exclude_end_of_period_heave", bool(cfg["exclude_end_of_period_heave"])),
                  ("exclude_garbage_time", bool(cfg["exclude_garbage_time"])),
                  ("min_possessions_for_own_column", int(cfg["min_possessions_for_own_column"])),
-                 ("rules_version", versions[0][0]), ("rules_profile", versions[0][1])):
+                 ("luck_three_prior", int(luck_cfg["three_prior_attempts"]) if luck else None),
+                 ("luck_ft_prior", int(luck_cfg["ft_prior_attempts"]) if luck else None),
+                 ("rules_version", version[0]), ("rules_profile", version[1])):
         rows[k] = v
-    con.execute("CREATE SCHEMA IF NOT EXISTS marts")
+    diag = None
+    if diagnostics:
+        half = split_half(obs, cfg, res["alpha"], y_col=y_col)
+        best = res["cv"]["table"].loc[res["cv"]["table"]["alpha"] == res["cv"]["alpha"]].iloc[0]
+        diag = pd.DataFrame([{"window_id": wid, "variant": variant, "n_obs": res["n_obs"], "players": len(rows), "alpha": res["alpha"],
+                              "cv_improvement_pct": float(100 * (1 - best["mean_mse"] / res["cv"]["baseline_mse"])),
+                              "split_half_players": half["players"], "split_half_r": half["r_rapm"], "split_half_r_o": half["r_o"],
+                              "split_half_r_d": half["r_d"], "home_points_per100": res["home_points_per100"],
+                              "rules_version": version[0], "rules_profile": version[1]}])
+    _ensure_tables(con)
     con.execute("BEGIN")
     try:
-        con.execute(f"CREATE TABLE IF NOT EXISTS marts.player_rapm {DDL}")
-        for c in ("o_se", "d_se", "rapm_se"):   # tables built before the standard errors existed
-            con.execute(f"ALTER TABLE marts.player_rapm ADD COLUMN IF NOT EXISTS {c} DOUBLE")
-        con.execute("DELETE FROM marts.player_rapm WHERE window_id = ?", [wid])
+        con.execute("DELETE FROM marts.player_rapm WHERE window_id = ? AND variant = ?", [wid, variant])
         con.register("rapm_rows", rows)
         con.execute("INSERT INTO marts.player_rapm BY NAME SELECT * FROM rapm_rows")
         con.unregister("rapm_rows")
+        if diag is not None:
+            con.execute("DELETE FROM marts.rapm_windows WHERE window_id = ? AND variant = ?", [wid, variant])
+            con.register("rapm_diag", diag)
+            con.execute("INSERT INTO marts.rapm_windows BY NAME SELECT * FROM rapm_diag")
+            con.unregister("rapm_diag")
         con.execute("COMMIT")
     except Exception:
         con.execute("ROLLBACK")
         raise
-    return {"window": wid, "observations": res["n_obs"], "players": len(rows), "alpha": round(res["alpha"], 1),
+    return {"window": wid, "variant": variant, "observations": res["n_obs"], "players": len(rows), "alpha": round(res["alpha"], 1),
             "grid_extended": res["cv"]["extensions"], "home_points_per100": round(res["home_points_per100"], 2)}
+
+
+def windows(first_year: int, last_year: int, length: int = 3, season_type: str = "regular") -> list[list[tuple[int, str]]]:
+    """Every single-season window and every trailing window of `length` seasons that fits (first_year .. last_year)."""
+    out = [[(y, season_type)] for y in range(first_year, last_year + 1)]
+    out += [[(y - k, season_type) for k in range(length - 1, -1, -1)] for y in range(first_year + length - 1, last_year + 1)]
+    return out
+
+
+def all_windows(con, cfg: dict | None = None, variants: tuple[str, ...] = VARIANTS, skip_existing: bool = True, log=print) -> list[dict]:
+    """Fit every window of every variant (regular seasons of core.games), one commit per window; a finished window is skipped,
+    so an interrupted run can simply be started again."""
+    cfg = cfg or load_rules()["rapm"]
+    years = [y for (y,) in con.execute("SELECT DISTINCT season_end_year FROM core.possessions p JOIN core.games g USING (game_id) "
+                                       "WHERE g.season_type = 'regular' ORDER BY 1").fetchall()]
+    _ensure_tables(con)
+    done = []
+    todo = [(w, v) for w in windows(min(years), max(years), int(cfg.get("window_seasons", 3))) for v in variants]
+    for i, (w, v) in enumerate(todo, 1):
+        wid = window_id(w)
+        if skip_existing and con.execute("SELECT count(*) FROM marts.rapm_windows WHERE window_id = ? AND variant = ?", [wid, v]).fetchone()[0]:
+            continue
+        t0 = datetime.now()
+        out = build(con, w, cfg, variant=v, diagnostics=True)
+        out["seconds"] = round((datetime.now() - t0).total_seconds())
+        log(f"[{i}/{len(todo)}] {out}")
+        done.append(out)
+    return done
 
 
 # ------------------------------------------------------------------ report
 
 
-def write_report(con, path: Path, seasons: list[tuple[int, str]], cfg: dict | None = None) -> dict:
+def write_report(con, path: Path, seasons: list[tuple[int, str]], cfg: dict | None = None, variant: str = "raw") -> dict:
     """docs/validation/rapm_<window>.md: cross-validation, reliability, sensitivity to the choices, sanity checks."""
     cfg = cfg or load_rules()["rapm"]
     names = dict(con.execute("SELECT player_id, name FROM core.players").fetchall())
-    obs = load_possessions(con, seasons, cfg)
+    luck = variant == "luck_adjusted"
+    y_col = "points_adj" if luck else "points"
+    obs = load_possessions(con, seasons, cfg, luck=luck)
     n_boot = int(cfg.get("bootstrap_samples", 0))
-    res = fit(obs, cfg, bootstrap=n_boot)
+    res = fit(obs, cfg, bootstrap=n_boot, y_col=y_col)
     cv, wid = res["cv"], window_id(seasons)
-    half = split_half(obs, cfg, res["alpha"])
+    half = split_half(obs, cfg, res["alpha"], y_col=y_col)
     variants = {}
     for label, heave, garbage in (("heaves and garbage time both in", False, False), ("heaves out, garbage time in", True, False)):
         v_cfg = {**cfg, "exclude_end_of_period_heave": heave, "exclude_garbage_time": garbage}
-        v = fit(load_possessions(con, seasons, v_cfg), v_cfg, res["alpha"])["players"]
+        v = fit(load_possessions(con, seasons, v_cfg, luck=luck), v_cfg, res["alpha"], y_col=y_col)["players"]
         m = res["players"].merge(v, on="player_id", suffixes=("", "_v"))
         m = m[m["off_poss"] + m["def_poss"] >= cfg["split_half_min_possessions"]]
         variants[label] = (len(m), float(m["rapm"].corr(m["rapm_v"])), float((m["rapm"] - m["rapm_v"]).abs().mean()), float((m["rapm"] - m["rapm_v"]).abs().max()))
@@ -323,9 +457,14 @@ def write_report(con, path: Path, seasons: list[tuple[int, str]], cfg: dict | No
                    f"**{int((big['rapm'].abs() > 2 * big['rapm_se']).sum())}** of {len(big)} players have a rating more than two standard errors from zero "
                    f"({int((top['rapm'] > 2 * top['rapm_se']).sum())} of the top 10, {int((bottom['rapm'] < -2 * bottom['rapm_se']).sum())} of the bottom 10). "
                    "Sampling noise only; the shrinkage bias of ridge is not in it.", ""]
-    lines = [f"# RAPM prototype: {wid}", "",
+    luck_cfg = cfg.get("luck_adjustment", {})
+    luck_line = (f"- Variant **luck_adjusted**: every three-point attempt counts 3 x the shooter's expected percentage and every free throw his expected percentage "
+                 f"(season rate shrunk toward the league's, priors {luck_cfg.get('three_prior_attempts')} / {luck_cfg.get('ft_prior_attempts')} attempts); unknown shot types keep their result."
+                 if luck else "- Variant **raw**: the points that were scored.")
+    lines = [f"# RAPM: {wid} ({variant})", "",
              "Ridge regression on our own possessions (`metrics/rapm.py`). Numbers only. **Prototype**: `marts.player_rapm` waits for the owner's "
              "approval; every choice below is `rules.yaml` `rapm` and marked [待確認].", "",
+             luck_line,
              f"- Observations: **{res['n_obs']:,}** possessions; credit: `{cfg['credit']}`; end-of-period heaves "
              f"{'excluded' if cfg['exclude_end_of_period_heave'] else 'included'}; garbage time {'excluded' if cfg['exclude_garbage_time'] else 'included'}.",
              f"- Players with their own column: **{res['n_own']}**; pooled into the replacement column: {res['n_replacement']} "
@@ -359,6 +498,81 @@ def write_report(con, path: Path, seasons: list[tuple[int, str]], cfg: dict | No
     return {"alpha": res["alpha"], "split_half_r": half["r_rapm"], "cv_improvement_pct": round(100 * (1 - best["mean_mse"] / cv["baseline_mse"]), 2)}
 
 
+def forecast_table(con, variant: str, kind: str) -> pd.DataFrame:
+    """Out-of-sample check: the RAPM of the window that ends the season before predicts a team's net rating of the next season.
+
+    prediction = sum over the team's players of (share of the team's offensive possessions he was on the floor) x his RAPM
+    (a player without a rating counts 0, an average player); actual = the team's net rating of that season without heaves and garbage time
+    (the possessions RAPM is trained on). `kind` is 'single' (the previous season) or 'trailing' (the three seasons ending in it).
+    """
+    years = [y for (y,) in con.execute("SELECT DISTINCT season_end_year FROM marts.team_efficiency_season WHERE season_type = 'regular' ORDER BY 1").fetchall()]
+    rows = []
+    for y in years[1:]:
+        w = [(y - 1, "regular")] if kind == "single" else [(y - k, "regular") for k in (3, 2, 1)]
+        if any(season not in [(a, "regular") for a in years] for season in w):
+            continue
+        wid = window_id(w)
+        if not con.execute("SELECT count(*) FROM marts.rapm_windows WHERE window_id = ? AND variant = ?", [wid, variant]).fetchone()[0]:
+            continue
+        df = con.execute("""
+            SELECT o.team_id, sum(o.on_o_poss * 1.0 / t.o_poss * coalesce(r.rapm, 0)) AS predicted,
+                   sum(o.on_o_poss * 1.0 / t.o_poss) FILTER (r.rapm IS NOT NULL) / 5 AS rated_share,
+                   any_value(t.net_ex_heave_garbage) AS actual, any_value(p.net_ex_heave_garbage) AS last_net
+            FROM marts.player_onoff_season o
+            JOIN marts.team_efficiency_season t ON t.season_end_year = o.season_end_year AND t.season_type = o.season_type AND t.team_id = o.team_id
+            LEFT JOIN marts.team_efficiency_season p ON p.season_end_year = o.season_end_year - 1 AND p.season_type = o.season_type AND p.team_id = o.team_id
+            LEFT JOIN marts.player_rapm r ON r.player_id = o.player_id AND r.window_id = ? AND r.variant = ?
+            WHERE o.season_end_year = ? AND o.season_type = 'regular' GROUP BY o.team_id""", [wid, variant, y]).df()
+        df.insert(0, "season_end_year", y)
+        rows.append(df)
+    out = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame(columns=["season_end_year", "team_id", "predicted", "rated_share", "actual", "last_net"])
+    out.insert(0, "kind", kind)
+    out.insert(0, "variant", variant)
+    return out
+
+
+def _skill(actual: np.ndarray, predicted: np.ndarray) -> dict:
+    """Correlation and the RMSE after the best linear rescaling of the prediction (a + b x prediction)."""
+    r = float(np.corrcoef(actual, predicted)[0, 1])
+    b, a = np.polyfit(predicted, actual, 1)
+    return {"r": r, "rmse": float(np.sqrt(np.mean((actual - (a + b * predicted)) ** 2))), "slope": float(b)}
+
+
+def forecast_report(con, path: Path) -> dict:
+    """docs/validation/rapm_forecast.md: how well each variant and window length predicts the next season's team net rating."""
+    tables = {(v, k): forecast_table(con, v, k) for v in VARIANTS for k in ("single", "trailing")}
+    keys = None
+    for t in tables.values():
+        ks = set(zip(t["season_end_year"], t["team_id"]))
+        keys = ks if keys is None else keys & ks
+    keys = {k for k in keys if all(pd.notna(t.loc[(t["season_end_year"] == k[0]) & (t["team_id"] == k[1]), "last_net"]).all() for t in tables.values())}
+    lines = ["# RAPM out of sample: predicting the next season's team net rating", "",
+             "For each team-season, the sum over its players of (share of the team's offensive possessions he was on the floor) x (his RAPM from the window that ends the season **before**) is compared with "
+             "the team's net rating of the season (without end-of-period heaves and garbage time). A player without a rating counts 0. Numbers only.", "",
+             f"Team-seasons in the common sample: **{len(keys):,}** (every method has a prediction for each of them). `RMSE` is after the best linear rescaling of the prediction; "
+             "the baseline predicts a team's net rating by last season's net rating.", "",
+             "| method | window | correlation | RMSE | slope |", "|---|---|---|---|---|"]
+    out = {}
+    common = pd.DataFrame(sorted(keys), columns=["season_end_year", "team_id"])
+    base = None
+    for (v, k), t in tables.items():
+        m = common.merge(t, on=["season_end_year", "team_id"])
+        if m.empty:
+            continue
+        sk = _skill(m["actual"].to_numpy(float), m["predicted"].to_numpy(float))
+        out[f"{v}/{k}"] = sk
+        lines.append(f"| RAPM {v} | {'one season' if k == 'single' else 'three seasons'} | {sk['r']:.3f} | {sk['rmse']:.2f} | {sk['slope']:.2f} |")
+        base = m
+    if base is not None:
+        sk = _skill(base["actual"].to_numpy(float), base["last_net"].to_numpy(float))
+        out["last season's net rating"] = sk
+        lines.append(f"| last season's net rating | - | {sk['r']:.3f} | {sk['rmse']:.2f} | {sk['slope']:.2f} |")
+    lines += ["", "Reading: a higher correlation and a lower RMSE are better. A prediction that uses the players' ratings knows the roster of the season it predicts "
+              "(a roster known in advance, which is the usual forecasting set-up) but not its results.", ""]
+    path.write_text(chr(10).join(lines), encoding="utf-8")
+    return out
+
+
 def slug(text: str) -> str:
     return re.sub(r"[^0-9a-z]+", "_", text.lower()).strip("_")
 
@@ -370,15 +584,24 @@ def parse_seasons(text: str) -> list[tuple[int, str]]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--seasons", default="2025:regular", help="comma list like 2025:regular,2024:regular (season end years)")
-    ap.add_argument("--report", action="store_true", help="also write docs/validation/rapm_<window>.md")
+    ap.add_argument("--variant", default="raw", choices=VARIANTS)
+    ap.add_argument("--report", action="store_true", help="also write docs/validation/rapm_<window>[_luck_adjusted].md")
+    ap.add_argument("--all-windows", action="store_true", help="fit every one-season and trailing three-season window for both variants (resumable)")
+    ap.add_argument("--forecast-report", action="store_true", help="write docs/validation/rapm_forecast.md from the fitted windows")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
-    seasons = parse_seasons(args.seasons)
     con = db.connect()
     try:
-        print(build(con, seasons))
-        if args.report:
-            print(write_report(con, db.PROJECT_ROOT / "docs" / "validation" / f"rapm_{slug(window_id(seasons))}.md", seasons))
+        if args.all_windows:
+            all_windows(con, log=lambda m: print(m, flush=True))
+        elif not args.forecast_report:
+            seasons = parse_seasons(args.seasons)
+            print(build(con, seasons, variant=args.variant, diagnostics=True))
+            if args.report:
+                suffix = "" if args.variant == "raw" else f"_{args.variant}"
+                print(write_report(con, db.PROJECT_ROOT / "docs" / "validation" / f"rapm_{slug(window_id(seasons))}{suffix}.md", seasons, variant=args.variant))
+        if args.forecast_report or args.all_windows:
+            print(forecast_report(con, db.PROJECT_ROOT / "docs" / "validation" / "rapm_forecast.md"))
     finally:
         con.close()
 

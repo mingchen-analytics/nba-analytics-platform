@@ -71,7 +71,7 @@ Notes for layer 1:
 
 | Page | Content | Needs |
 |---|---|---|
-| RAPM | offensive and defensive RAPM, multi-season windows, home court, low-minute bucket; lambda from grouped cross-validation (by game) | `marts.player_rapm` (prototype fitted 2026-10-22 for 2024-25 and 2022-23 → 2024-25; approved 2026-10-22; page `11_RAPM.py`: window, minimum possessions, sort, only clear-of-zero players, offense-defense scatter, every rating with its standard error) |
+| RAPM | offensive and defensive RAPM, multi-season windows, home court, low-minute bucket; lambda from grouped cross-validation (by game) | `marts.player_rapm`, `marts.rapm_windows` (approved 2026-10-22; since 2026-10-25 every season as a one-season and a trailing three-season window, raw and luck-adjusted; page `11_RAPM.py`: variant switch, tabs Leaderboard (window, minimum possessions, sort, only clear-of-zero players, offense-defense scatter, every rating with its standard error), Career (RAPM ± 2 SE per window of a player) and Windows (penalty, cross-validation gain, split-half reliability)) |
 | One-number metric | an EPM-style metric: a box-score prior (from layer 1 data) combined with RAPM | RAPM + player-season box data |
 
 ## What layer 2 needs from the possession code

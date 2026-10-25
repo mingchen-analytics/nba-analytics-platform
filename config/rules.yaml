@@ -128,6 +128,10 @@ rapm:
   alpha_grid_size: 13
   max_grid_extensions: 3
   seed: 20261022
+  window_seasons: 3                     # the trailing window next to the single-season one: the three seasons ending in a season
+  luck_adjustment:                      # variant `luck_adjusted` (metrics/rapm.py): expected instead of actual result of three-point attempts and free throws
+    three_prior_attempts: 500           # shooter's season rate = (made + prior x league rate) / (attempts + prior); owner to confirm [待確認]
+    ft_prior_attempts: 200
   bootstrap_samples: 50                 # resamples of whole games (with replacement) for the standard errors; 0 = none
   split_half_min_possessions: 1000      # players with at least this many possessions in BOTH halves enter the reliability
 

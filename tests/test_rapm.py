@@ -160,3 +160,96 @@ def test_mart_keeps_the_standard_errors_and_adds_the_columns_to_an_older_table(c
     assert con.execute("SELECT count(*) FILTER (rapm_se > 0), count(*) FROM marts.player_rapm").fetchone() == (10, 10)
     rapm.build(con, [(2025, "regular")], {**CFG, "cv_folds": 3, "bootstrap_samples": 0})
     assert con.execute("SELECT count(*) FILTER (rapm_se IS NULL) FROM marts.player_rapm").fetchone()[0] == 10   # NULL, never an invented 0
+
+
+# ------------------------------------------------------------------ luck adjustment, variants, windows, forecast check
+
+LUCK_CFG = {**CFG, "luck_adjustment": {"three_prior_attempts": 2, "ft_prior_attempts": 1}}
+
+
+@pytest.fixture
+def luck_con():
+    """One game: possessions that exercise the adjustment (three-point makes and misses, a free throw, a two, an unknown shot type)."""
+    c = db.connect(":memory:")
+    c.execute("INSERT INTO core.games VALUES ('GA', '2024-25', 2025, 'regular', NULL, 1, 2, 0, 0, 4, 't', FALSE, NULL)")
+    c.execute("INSERT INTO core.stints VALUES ('GA', 1, 1, 0, 100, 1, 20, 'period_start', 5, 11, 12, 13, 14, 15, 21, 22, 23, 24, 25, 'v1')")
+    spec = [  # possession, offense team, points, event type, shooter, shooter's team, source_event_num, shot type (None = no row in core.shots)
+        (1, 1, 3, "shot_made", 11, 1, 101, "3PT Field Goal"), (2, 2, 0, "shot_missed", 21, 2, 102, "3PT Field Goal"),
+        (3, 1, 2, "shot_made", 12, 1, 103, "2PT Field Goal"), (4, 2, 1, "free_throw", 21, 2, 104, None),
+        (5, 1, 3, "shot_made", 11, 1, 105, "3PT Field Goal"), (6, 1, 0, "shot_missed", 11, 1, 106, None)]
+    for pid, off, pts, kind, shooter, team, num, shot_type in spec:
+        c.execute("INSERT INTO core.possessions (game_id, possession_id, offense_team_id, defense_team_id, period, start_secs, end_secs, start_event_seq, "
+                  "end_event_seq, start_type, end_type, points, num_chances, secs_remaining_period_at_start, secs_remaining_game_at_start, "
+                  "is_end_of_period_heave, is_garbage_time, is_after_timeout, rules_version, rules_profile) "
+                  "VALUES ('GA', ?, ?, ?, 1, 0, 0, 1, 1, 's', 'e', ?, 1, 100, 100, FALSE, FALSE, FALSE, 'v1', 'pbpstats_compat')", [pid, off, 3 - off, pts])
+        c.execute("INSERT INTO core.possession_stint_segments VALUES ('GA', ?, 1, 1, 1, 1, 0, 0)", [pid])
+        c.execute("INSERT INTO core.events (game_id, event_seq, source_event_num, period, secs_elapsed_game, team_id, event_type, player1_id, points, stint_id, "
+                  "possession_id, source) VALUES ('GA', ?, ?, 1, 1, ?, ?, ?, ?, 1, ?, 't')", [pid, num, team, kind, shooter, pts, pid])
+        if shot_type:
+            c.execute("INSERT INTO core.shots (game_id, source_event_num, player_id, team_id, shot_type, made, source) VALUES ('GA', ?, ?, ?, ?, ?, 't')",
+                      [num, shooter, team, shot_type, pts > 0])
+    yield c
+    c.close()
+
+
+def test_luck_adjustment_replaces_the_result_of_three_point_attempts_and_free_throws_with_the_expected_one(luck_con):
+    raw = rapm.load_possessions(luck_con, [(2025, "regular")], LUCK_CFG, luck=False)
+    adj = rapm.load_possessions(luck_con, [(2025, "regular")], LUCK_CFG, luck=True)
+    assert raw["points_adj"].tolist() == raw["points"].tolist() == [3, 0, 2, 1, 3, 0]            # without luck: the actual points
+    league = 2 / 3                                                                                # 2 of 3 threes (the unknown-type shot is not counted)
+    p11 = (2 + 2 * league) / (2 + 2)                                                              # shooter 11: 2 of 2, prior 2 attempts
+    p21 = (0 + 2 * league) / (1 + 2)                                                              # shooter 21: 0 of 1
+    expected = [3 * p11, 3 * p21, 2, 1, 3 * p11, 0]                                               # the two, the free throw (league 100 %) and the unknown type keep their result
+    assert adj["points_adj"].tolist() == pytest.approx(expected)
+    assert adj["points"].tolist() == [3, 0, 2, 1, 3, 0]                                           # the actual points stay
+
+
+def test_expected_points_conserve_the_league_total_with_no_prior(luck_con):
+    """A shooter's own rate without shrinkage gives back his actual total: the adjustment moves points between possessions, not into thin air."""
+    cfg = {**CFG, "luck_adjustment": {"three_prior_attempts": 0, "ft_prior_attempts": 0}}
+    adj = rapm.load_possessions(luck_con, [(2025, "regular")], cfg, luck=True)
+    assert adj["points_adj"].sum() == pytest.approx(adj["points"].sum())
+
+
+def test_an_unknown_variant_fails(luck_con):
+    with pytest.raises(rapm.RapmError, match="unknown variant"):
+        rapm.build(luck_con, [(2025, "regular")], LUCK_CFG, variant="bogus")
+
+
+def test_windows_cover_every_season_and_every_trailing_three():
+    w = rapm.windows(1997, 2000)
+    assert [x for x in w if len(x) == 1] == [[(y, "regular")] for y in (1997, 1998, 1999, 2000)]
+    assert [x for x in w if len(x) == 3] == [[(1997, "regular"), (1998, "regular"), (1999, "regular")], [(1998, "regular"), (1999, "regular"), (2000, "regular")]]
+
+
+def test_fit_uses_the_chosen_outcome_column():
+    obs, _ = _simulate(n_poss=20_000, signal=0.04, seed=11)
+    obs["points_adj"] = obs["points"] + 5.0                                     # a constant shift moves only the intercept
+    a = rapm.fit(obs, CFG, alpha=300.0, y_col="points")["players"]
+    b = rapm.fit(obs, CFG, alpha=300.0, y_col="points_adj")["players"]
+    assert np.allclose(a["rapm"], b["rapm"], atol=1e-6)
+    flipped = obs.assign(points_adj=-obs["points"])
+    c = rapm.fit(flipped, CFG, alpha=300.0, y_col="points_adj")["players"]
+    assert np.allclose(c["o_rapm"], -a["o_rapm"], atol=1e-6)                    # a different outcome gives different ratings
+
+
+def test_player_rapm_table_is_migrated_to_the_variant_key(con):
+    con.execute("CREATE SCHEMA IF NOT EXISTS marts")
+    con.execute("CREATE TABLE marts.player_rapm (window_id TEXT NOT NULL, player_id INTEGER NOT NULL, off_poss INTEGER NOT NULL, def_poss INTEGER NOT NULL, "
+                "o_rapm DOUBLE NOT NULL, d_rapm DOUBLE NOT NULL, rapm DOUBLE NOT NULL, alpha DOUBLE NOT NULL, n_obs INTEGER NOT NULL, "
+                "home_points_per100 DOUBLE NOT NULL, credit_method TEXT NOT NULL, exclude_end_of_period_heave BOOLEAN NOT NULL, "
+                "exclude_garbage_time BOOLEAN NOT NULL, min_possessions_for_own_column INTEGER NOT NULL, rules_version TEXT NOT NULL, "
+                "rules_profile TEXT NOT NULL, PRIMARY KEY (window_id, player_id))")
+    con.execute("INSERT INTO marts.player_rapm VALUES ('w', 7, 10, 10, 1.0, 1.0, 2.0, 100.0, 5, 1.0, 'end_lineup', TRUE, TRUE, 1, 'v1', 'pbpstats_compat')")
+    rapm._ensure_tables(con)
+    assert con.execute("SELECT variant, rapm, window_id FROM marts.player_rapm").fetchall() == [("raw", 2.0, "w")]
+    with pytest.raises(Exception):   # the key includes the variant: the same player of the same window exists once per variant, not twice
+        con.execute("INSERT INTO marts.player_rapm (window_id, variant, player_id, off_poss, def_poss, o_rapm, d_rapm, rapm, alpha, n_obs, home_points_per100, "
+                    "credit_method, exclude_end_of_period_heave, exclude_garbage_time, min_possessions_for_own_column, rules_version, rules_profile) "
+                    "VALUES ('w', 'raw', 7, 1, 1, 0, 0, 0, 1, 1, 0, 'x', TRUE, TRUE, 1, 'v', 'p')")
+
+
+def test_skill_measures_correlation_and_rescaled_error():
+    actual = np.array([-4.0, -1.0, 0.0, 2.0, 5.0])
+    s = rapm._skill(actual, actual * 0.5 + 1.0)            # perfectly informative, wrong scale
+    assert s["r"] == pytest.approx(1.0) and s["rmse"] == pytest.approx(0.0, abs=1e-9) and s["slope"] == pytest.approx(2.0)

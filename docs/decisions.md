@@ -1186,3 +1186,20 @@ New tables `marts.combo_stats` (3- and 4-man groups) and `marts.possession_noise
   ignores that the group was chosen after the fact (the best lineups of a league are selected for luck): a hint, not a significance test. The page says so.
 - **Build**: the pair and combo tables are written season by season, and all new tables are written as `*_new`, checked and then swapped in by one small transaction; one big transaction held every new row in memory and
   ran out of it on this machine (1.29 million combos).
+
+## 2026-10-25 — RAPM: luck adjustment and every-season windows (branch `rapm-phase`; priors wait for the owner)
+
+New: `marts.player_rapm` has the key `(window_id, variant, player_id)` (`raw` / `luck_adjusted`), new `marts.rapm_windows` with the diagnostics of each fit, and `python -m nba_platform.metrics.rapm --all-windows` (resumable)
+fits all 116 windows: each of the 30 seasons 1996-97 → 2025-26 alone and, from 1998-99, as the trailing three seasons, both variants.
+- **Luck adjustment**: in the luck variant a possession's outcome is the points with every three-point attempt replaced by 3 x the shooter's expected three-point percentage and every free throw by his expected percentage
+  (his season rate shrunk toward the league's: (made + prior x league rate) / (attempts + prior)). Priors 500 three-point attempts and 200 free throws **[待確認]** (`rules.yaml` `rapm.luck_adjustment`). A shot without a
+  shot type in `core.shots` (745 of about 6.3 million) keeps its actual result: unknown stays unknown. With a prior of zero the adjustment gives back each shooter's own total (tested), so it moves points between
+  possessions, not out of the league. Two-point shots, and everything else on a possession, stay as scored.
+- **Reliability (split half, mean over windows)**: one season raw 0.39, luck-adjusted 0.41 (offense 0.40 / 0.42, defense 0.34 / 0.39); three seasons raw 0.52, luck-adjusted 0.53 (defense 0.46 / 0.53). Luck-adjusted is more
+  reliable in 38 of 58 windows. The gain is mostly on defense, where the opponents' shooting luck is the noise.
+- **Out of sample (803 team-seasons, `docs/validation/rapm_forecast.md`)**: the RAPM of the earlier window predicts the next season's team net rating with correlation 0.69 (raw, one season), 0.72 (raw, three seasons),
+  0.69 / 0.72 for luck-adjusted, against 0.61 for last season's net rating. **The luck adjustment does not improve this forecast** (slightly lower, RMSE 3.55 against 3.53 for three seasons): more reliable ratings are not
+  better predictors here. The three-season window is better than the single season. Reported as found; no setting was changed to improve it (working agreement 11). Possible reasons are not tested: the predicted season's net
+  rating contains its own shooting luck, and a good shooter's rate also reflects his team's shot quality.
+- **Page**: variant switch, leaderboard, career curve (RAPM +/- 2 standard errors per window), window diagnostics.
+

@@ -220,17 +220,22 @@ def test_rapm_page_renders_and_filters():
 
     con = duckdb.connect(str(DB_PATH), read_only=True)
     try:
-        built = con.execute("SELECT count(*) FROM information_schema.tables WHERE table_name = 'player_rapm'").fetchone()[0]
+        built = con.execute("SELECT count(*) FROM information_schema.tables WHERE table_name IN ('player_rapm', 'rapm_windows')").fetchone()[0] == 2
+        fitted = built and con.execute("SELECT count(*) FROM marts.rapm_windows WHERE window_id LIKE '% + %'").fetchone()[0] > 0
     finally:
         con.close()
-    if not built:
-        pytest.skip("marts.player_rapm not fitted")
-    at = AppTest.from_file(str(RAPM_PAGE), default_timeout=120).run()
+    if not fitted:
+        pytest.skip("marts.player_rapm / marts.rapm_windows not fitted with three-season windows")
+    at = AppTest.from_file(str(RAPM_PAGE), default_timeout=180).run()
     assert not at.exception, at.exception
-    assert at.title[0].value == "RAPM (prototype)" and len(at.dataframe) == 1 and len(at.dataframe[0].value) >= 10
+    assert at.title[0].value == "RAPM" and len(at.dataframe) == 3 and len(at.dataframe[0].value) >= 10    # leaderboard, career table, windows table
     at.toggle[0].set_value(True).run()
     assert not at.exception, at.exception
     at.selectbox[1].select("d_rapm").run()
+    assert not at.exception, at.exception
+    at.radio[0].set_value("raw").run()                                                                 # the other variant (the page shows luck-adjusted first)
+    assert not at.exception, at.exception
+    at.radio(key="board_kind").set_value("one season").run()
     assert not at.exception, at.exception
 
 

@@ -30,7 +30,7 @@ tested, and versioned, so each number can be explained and reproduced.
   pbpstats) and `custom` (my own choices), with the rule "copy first, then deviate, one documented
   change at a time".
 - **Fail loudly**: an unmapped player, team or event type stops the load; data is never silently
-  dropped or "fixed" to make a check pass. 331 automated tests, run by CI on every push.
+  dropped or "fixed" to make a check pass. 338 automated tests, run by CI on every push.
 
 ## Possession results
 
@@ -57,7 +57,7 @@ score-margin chart), players (leaderboard and game log), teams, shooting (zone f
 with league percentiles, shot chart), tracking / hustle (season and game by game), and from my own possessions:
 team efficiency (four factors, with end-of-period-heave and garbage-time switches), on/off, lineups (2- to 5-man
 groups, league leaderboard and by player, with the four factors and a noise hint), matchups (who guarded a player in a series, game by game) and RAPM (ridge, with bootstrap standard
-errors; a prototype). Every number is labelled by where it comes from (official NBA.com value, counted from my
+errors, a luck-adjusted variant and a career curve for every season). Every number is labelled by where it comes from (official NBA.com value, counted from my
 play-by-play, or model).
 
 | | |
@@ -209,10 +209,11 @@ if anything fails. Install it once per clone: `git config core.hooksPath scripts
 - [x] Dashboard layer 1: games, players, teams, shooting, tracking
 - [x] On/off, five-man lineups, two-man pairs and team efficiency, with dashboard pages
 - [x] Substitution credit decided: the pbpstats hybrid (option A moves 7.1 % of points: `docs/validation/onoff_credit_methods.md`)
-- [x] RAPM prototype: ridge, penalty by game-grouped cross-validation, bootstrap standard errors (split-half reliability
-      0.37 for one season, 0.57 for three: `docs/validation/rapm_*.md`)
+- [x] RAPM: ridge, penalty by game-grouped cross-validation, bootstrap standard errors; every season as a one-season and a trailing
+      three-season window, raw and luck-adjusted (mean split-half reliability 0.39 / 0.41 for one season, 0.52 / 0.53 for three;
+      the luck adjustment does not improve the out-of-sample forecast of next season's team net rating: `docs/validation/rapm_forecast.md`)
 - [x] Matchup table from NBA.com's matchup data, joined by shared IDs, with a page
 - [ ] `custom` profile: first documented deviations (for example ordering rows by the official event numbers)
-- [ ] RAPM beyond the prototype (more windows, priors), the Playoff Matchup Adjustment Tracker's own views and video tracking, linked by shared IDs
+- [ ] EPM-style metric (box-score and tracking prior for RAPM), the Playoff Matchup Adjustment Tracker's own views and video tracking, linked by shared IDs
 
 More: `docs/README.md` is the map of the documentation.

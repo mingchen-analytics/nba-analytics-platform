@@ -340,15 +340,30 @@ did not play (0 seconds, "DNP") are left out and counted (`dnp_rows`). `has_trac
 `uncontested_field_goals_made` / `_attempted`, `defended_at_rim_field_goals_*`, `contested_shots` (+ `2pt`, `3pt`), `deflections`,
 `charges_drawn`, `screen_assists`, `screen_assist_points`, `loose_balls_recovered_total`, `box_outs`.
 
-## marts.player_rapm (approved 2026-10-22; fitted per window)
+## marts.player_rapm (approved 2026-10-22; fitted per window and variant)
 
-Ridge RAPM per player and window (`metrics/rapm.py`), **PRIMARY KEY** `(window_id, player_id)`; `window_id` is for example
+Ridge RAPM per player, window and **variant** (`metrics/rapm.py`), **PRIMARY KEY** `(window_id, variant, player_id)`. `variant` is `raw`
+(the points that were scored) or `luck_adjusted` (every three-point attempt counts 3 × the shooter's expected percentage and every free
+throw his expected percentage; the expected percentage is the shooter's season rate shrunk toward the league's with the priors in
+`rules.yaml` `rapm.luck_adjustment`, 500 / 200 attempts, **[待確認]**; a shot with an unknown type keeps its result; the free-throw and
+three-point league rates are per season). A table built before the variant existed was migrated: its rows are `raw`. `window_id` is for example
 `2024-25 regular` or `2022-23 + 2023-24 + 2024-25 regular`. One observation per possession (points of the offense); features: five
 offense columns, five defense columns, home court; penalty by cross-validation grouped by game. Columns: `off_poss`, `def_poss`
 (possessions on the floor), `o_rapm`, `d_rapm` (positive = good), `rapm` = sum, all in points per 100 possessions relative to
 an average player; `alpha`, `n_obs`, `home_points_per100`, and the choices that produced the row: `credit_method`
 (`end_lineup`), `exclude_end_of_period_heave`, `exclude_garbage_time`, `min_possessions_for_own_column`, `rules_version`,
 `rules_profile`. Players below the possession minimum share a replacement column and have no row. `o_se`, `d_se`, `rapm_se`: bootstrap standard errors (50 resamples of whole games, same penalty; NULL when none was run).
+
+## marts.rapm_windows (how well each window is determined)
+
+One row per `(window_id, variant)`: `n_obs`, `players` (rated players), `alpha` (penalty chosen by game-grouped cross-validation),
+`cv_improvement_pct` (gain of the cross-validated error over predicting the mean), `split_half_players`, `split_half_r`, `split_half_r_o`,
+`split_half_r_d` (correlation of the ratings of two random halves of the games, players with 1,000+ possessions in both halves),
+`home_points_per100`, `rules_version`, `rules_profile`. Written by `python -m nba_platform.metrics.rapm --all-windows` (every season
+1996-97 → 2025-26 as a one-season window and as the trailing three seasons, regular season, both variants; resumable) or by a single
+`--seasons ... --variant ...` fit. `python -m nba_platform.metrics.rapm --forecast-report` writes `docs/validation/rapm_forecast.md`
+(the RAPM of the window ending the season before, weighted by the share of the team's possessions each player was on the floor,
+against the team's net rating of the next season).
 
 ## marts.matchup_pairs
 
