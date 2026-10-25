@@ -3,7 +3,9 @@
 Built from core.stints, core.possessions, core.possession_stint_segments and core.events; nothing
 comes from the NBA.com box score. One row per (season, type, team, player) in
 marts.player_onoff_season, per (season, type, team, lineup) in marts.lineup_stats and per
-(season, type, team, two players) in marts.pair_stats.
+(season, type, team, two players) in marts.pair_stats and per (season, type, team, three or four players) in
+marts.combo_stats. marts.possession_noise holds each season's standard deviation of points per possession, so pages can show approximate
+confidence intervals on the ratings (1.96 x 100 x sd / sqrt(possessions); a statistical approximation, not a model).
 
 Crediting (CLAUDE.md "Substitution during a possession", decided by the owner 2026-10-22): the
 marts use the pbpstats hybrid, recorded in `credit_method` = 'pbpstats_hybrid':
@@ -14,6 +16,12 @@ marts use the pbpstats hybrid, recorded in `credit_method` = 'pbpstats_hybrid':
   (`ft_without_foul`, counted in the report) goes to the stint of the free throw itself;
 - technical free throws and free throws between possessions belong to no possession and are not
   counted anywhere in these tables (CLAUDE.md "Lineup efficiency").
+Four factors (lineup, pair and combo tables): shot counts (FGA, FGM, 3PM) go to the stint of the shot event; made free
+throws to the stint at the foul (the hybrid); turnovers and defensive rebounds that end a possession to the stint on the
+floor when it ends; offensive rebounds (a rebound followed by a higher chance id: 1,094,018 against 1,094,077 in
+`num_chances - 1`) to the stint of the rebound. All possessions count, heaves and garbage time included. Rates: eFG%, TOV% (per
+possession), ORB% (own offensive rebounds / (own + the possessions the opponent's defensive rebound ended)), FT rate (made free
+throws per FGA); `d_` columns are the opponents' numbers while the lineup defends.
 Option A ('end_lineup': every point of a possession, free throws included, goes to the stint on the
 floor when it ends) is computed only for `compare_credit_methods`, which writes
 docs/validation/onoff_credit_methods.md; option C (chance split) is not implemented.
@@ -45,7 +53,7 @@ from nba_platform.seasons import season_label
 
 CREDIT_METHOD = "pbpstats_hybrid"
 CREDIT_METHODS = ("pbpstats_hybrid", "end_lineup")
-TEMP_TABLES = ("poss_end", "credit_points", "credits", "stint_team")
+TEMP_TABLES = ("poss_end", "orb_events", "credit_points", "credits", "stint_team")
 
 
 class OnOffMartError(RuntimeError):
@@ -53,7 +61,12 @@ class OnOffMartError(RuntimeError):
 
 
 STAT_COLS = ["o_poss", "o_pts", "o_heave_poss", "o_garbage_poss", "d_poss", "d_pts", "d_heave_poss", "d_garbage_poss"]
+FACTOR_COLS = ["fga", "fgm", "fg3m", "ftm", "tov", "orb", "drb_end"]       # four-factor counts of one offense
+FACTOR_STAT_COLS = [f"{side}_{c}" for side in ("o", "d") for c in FACTOR_COLS]
+ALL_COLS = STAT_COLS + FACTOR_STAT_COLS
+FACTOR_RATE_COLS = [f"{side}_{r}" for side in ("o", "d") for r in ("efg", "tov_pct", "orb_pct", "ft_rate")]
 TAIL = "credit_method TEXT NOT NULL, rules_version TEXT NOT NULL, rules_profile TEXT NOT NULL"
+RATE_DDL = ", ".join(f"{c} DOUBLE" for c in FACTOR_RATE_COLS)
 
 DDL_PLAYER = f"""(
     season_end_year INTEGER NOT NULL, season_type TEXT NOT NULL, team_id INTEGER NOT NULL, player_id INTEGER NOT NULL,
@@ -68,8 +81,8 @@ DDL_LINEUP = f"""(
     season_end_year INTEGER NOT NULL, season_type TEXT NOT NULL, team_id INTEGER NOT NULL, lineup_key TEXT NOT NULL,
     p1 INTEGER NOT NULL, p2 INTEGER NOT NULL, p3 INTEGER NOT NULL, p4 INTEGER NOT NULL, p5 INTEGER NOT NULL,
     games INTEGER NOT NULL, stints INTEGER NOT NULL, secs DOUBLE NOT NULL,
-    {", ".join(f"{c} BIGINT NOT NULL" for c in STAT_COLS)},
-    ortg DOUBLE, drtg DOUBLE, net DOUBLE,
+    {", ".join(f"{c} BIGINT NOT NULL" for c in ALL_COLS)},
+    ortg DOUBLE, drtg DOUBLE, net DOUBLE, {RATE_DDL},
     {TAIL},
     PRIMARY KEY (season_end_year, season_type, team_id, lineup_key))"""
 
@@ -77,16 +90,30 @@ DDL_PAIR = f"""(
     season_end_year INTEGER NOT NULL, season_type TEXT NOT NULL, team_id INTEGER NOT NULL,
     player_a INTEGER NOT NULL, player_b INTEGER NOT NULL,
     games INTEGER NOT NULL, stints INTEGER NOT NULL, secs DOUBLE NOT NULL,
-    {", ".join(f"{c} BIGINT NOT NULL" for c in STAT_COLS)},
-    ortg DOUBLE, drtg DOUBLE, net DOUBLE,
+    {", ".join(f"{c} BIGINT NOT NULL" for c in ALL_COLS)},
+    ortg DOUBLE, drtg DOUBLE, net DOUBLE, {RATE_DDL},
     {TAIL},
     PRIMARY KEY (season_end_year, season_type, team_id, player_a, player_b))"""
+
+DDL_COMBO = f"""(
+    season_end_year INTEGER NOT NULL, season_type TEXT NOT NULL, team_id INTEGER NOT NULL, size INTEGER NOT NULL, combo_key TEXT NOT NULL,
+    p1 INTEGER NOT NULL, p2 INTEGER NOT NULL, p3 INTEGER NOT NULL, p4 INTEGER,
+    games INTEGER NOT NULL, stints INTEGER NOT NULL, secs DOUBLE NOT NULL,
+    {", ".join(f"{c} BIGINT NOT NULL" for c in ALL_COLS)},
+    ortg DOUBLE, drtg DOUBLE, net DOUBLE, {RATE_DDL},
+    {TAIL},
+    PRIMARY KEY (season_end_year, season_type, team_id, size, combo_key))"""
+
+DDL_NOISE = """(
+    season_end_year INTEGER NOT NULL, season_type TEXT NOT NULL, possessions BIGINT NOT NULL, mean_pts DOUBLE NOT NULL, sd_pts DOUBLE NOT NULL,
+    rules_version TEXT NOT NULL, rules_profile TEXT NOT NULL,
+    PRIMARY KEY (season_end_year, season_type))"""
 
 # possession -> the stint on the floor when it ends
 POSS_END = """
     CREATE TEMP TABLE poss_end AS
     SELECT p.game_id, p.possession_id, p.offense_team_id, p.is_end_of_period_heave AS heave, p.is_garbage_time AS garbage,
-           s.end_stint_id
+           p.end_type, s.end_stint_id
     FROM core.possessions p
     LEFT JOIN (SELECT game_id, possession_id, arg_max(stint_id, segment_seq) AS end_stint_id
                FROM core.possession_stint_segments GROUP BY ALL) s USING (game_id, possession_id)"""
@@ -97,20 +124,45 @@ CREDIT_POINTS = """
     CREATE TEMP TABLE credit_points AS
     SELECT e.game_id, e.team_id AS scoring_team_id, e.points,
            CASE WHEN e.event_type = 'free_throw' THEN {ft_stint} ELSE pe.end_stint_id END AS stint_id,
-           e.event_type = 'free_throw' AND f.stint_id IS NULL AS ft_without_foul
+           e.event_type = 'free_throw' AND f.stint_id IS NULL AS ft_without_foul, e.event_type = 'free_throw' AS is_ft
     FROM core.events e
     JOIN poss_end pe ON pe.game_id = e.game_id AND pe.possession_id = e.possession_id
     LEFT JOIN core.events f ON f.game_id = e.game_id AND f.event_seq = e.foul_event_seq
     WHERE e.points > 0 AND NOT coalesce(e.is_technical_ft, FALSE) AND NOT coalesce(e.is_between_possessions_ft, FALSE)"""
 
-# what each team's offense got in each stint (long format: possessions and points are separate rows)
-CREDITS = """
+# offensive rebounds: a rebound inside a possession that is followed by a higher chance id (the possession goes on)
+ORB_EVENTS = """
+    CREATE TEMP TABLE orb_events AS
+    SELECT r.game_id, r.stint_id, r.team_id, pe.offense_team_id
+    FROM (SELECT e.game_id, e.possession_id, e.stint_id, e.team_id, e.event_type, e.chance_id,
+                 lead(e.chance_id) OVER (PARTITION BY e.game_id, e.possession_id ORDER BY e.event_seq) AS next_chance
+          FROM core.events e WHERE e.possession_id IS NOT NULL) r
+    JOIN poss_end pe ON pe.game_id = r.game_id AND pe.possession_id = r.possession_id
+    WHERE r.event_type = 'rebound' AND r.next_chance > r.chance_id"""
+
+def _zeros(**kw):
+    vals = {c: "0" for c in FACTOR_COLS}
+    vals.update(kw)
+    return ", ".join(f"{vals[c]} AS {c}" for c in FACTOR_COLS)
+
+
+# what each team's offense got in each stint (long format: possessions, points and each factor event are separate rows)
+CREDITS = f"""
     CREATE TEMP TABLE credits AS
-    SELECT game_id, stint_id, off_team_id, sum(poss) AS poss, sum(pts) AS pts, sum(heave) AS heave, sum(garbage) AS garbage
+    SELECT game_id, stint_id, off_team_id, sum(poss) AS poss, sum(pts) AS pts, sum(heave) AS heave, sum(garbage) AS garbage,
+           {", ".join(f"sum({c}) AS {c}" for c in FACTOR_COLS)}
     FROM (SELECT game_id, end_stint_id AS stint_id, offense_team_id AS off_team_id, 1 AS poss, 0 AS pts,
-                 CAST(heave AS INTEGER) AS heave, CAST(garbage AS INTEGER) AS garbage FROM poss_end
+                 CAST(heave AS INTEGER) AS heave, CAST(garbage AS INTEGER) AS garbage,
+                 {_zeros(tov="CAST(end_type = 'turnover' AS INTEGER)", drb_end="CAST(end_type = 'defensive_rebound' AS INTEGER)")}
+          FROM poss_end
           UNION ALL
-          SELECT game_id, stint_id, scoring_team_id, 0, points, 0, 0 FROM credit_points)
+          SELECT game_id, stint_id, scoring_team_id, 0, points, 0, 0, {_zeros(ftm="CAST(is_ft AS INTEGER)")} FROM credit_points
+          UNION ALL
+          SELECT game_id, stint_id, team_id, 0, 0, 0, 0,
+                 {_zeros(fga="1", fgm="CAST(event_type = 'shot_made' AS INTEGER)", fg3m="CAST(event_type = 'shot_made' AND points = 3 AS INTEGER)")}
+          FROM core.events WHERE event_type IN ('shot_made', 'shot_missed') AND team_id IS NOT NULL
+          UNION ALL
+          SELECT game_id, stint_id, offense_team_id, 0, 0, 0, 0, {_zeros(orb="1")} FROM orb_events)
     GROUP BY ALL"""
 
 # one row per (stint, team on the floor): seconds, the five players (sorted), and the team's offense / defense credit
@@ -126,13 +178,24 @@ STINT_TEAM = """
         FROM core.stints s JOIN core.games g USING (game_id))
     SELECT x.game_id, x.stint_id, x.season_end_year, x.season_type, x.team_id, x.secs, x.players,
            coalesce(o.poss, 0) AS o_poss, coalesce(o.pts, 0) AS o_pts, coalesce(o.heave, 0) AS o_heave_poss, coalesce(o.garbage, 0) AS o_garbage_poss,
-           coalesce(d.poss, 0) AS d_poss, coalesce(d.pts, 0) AS d_pts, coalesce(d.heave, 0) AS d_heave_poss, coalesce(d.garbage, 0) AS d_garbage_poss
+           coalesce(d.poss, 0) AS d_poss, coalesce(d.pts, 0) AS d_pts, coalesce(d.heave, 0) AS d_heave_poss, coalesce(d.garbage, 0) AS d_garbage_poss,
+           {factors}
     FROM sides x
     LEFT JOIN credits o ON o.game_id = x.game_id AND o.stint_id = x.stint_id AND o.off_team_id = x.team_id
     LEFT JOIN credits d ON d.game_id = x.game_id AND d.stint_id = x.stint_id AND d.off_team_id = x.opp_team_id"""
 
+STINT_TEAM = STINT_TEAM.replace("{factors}", ", ".join(f"coalesce(o.{c}, 0) AS o_{c}" for c in FACTOR_COLS) + ", "
+                                + ", ".join(f"coalesce(d.{c}, 0) AS d_{c}" for c in FACTOR_COLS))
+
 SUMS = ", ".join(f"CAST(sum({c}) AS BIGINT) AS {c}" for c in STAT_COLS)
-PAIRS = "[" + ", ".join(f"[players[{i}], players[{j}]]" for i, j in combinations(range(1, 6), 2)) + "]"
+SUMS_ALL = ", ".join(f"CAST(sum({c}) AS BIGINT) AS {c}" for c in ALL_COLS)
+
+
+def _tuples(k: int) -> str:
+    return "[" + ", ".join("[" + ", ".join(f"players[{i}]" for i in idx) + "]" for idx in combinations(range(1, 6), k)) + "]"
+
+
+PAIRS, TRIOS, QUARTETS = _tuples(2), _tuples(3), _tuples(4)
 
 
 def _rate(pts: str, poss: str) -> str:
@@ -143,6 +206,17 @@ def _ratings(prefix: str = "") -> str:
     o = _rate(f"{prefix}o_pts", f"{prefix}o_poss")
     d = _rate(f"{prefix}d_pts", f"{prefix}d_poss")
     return f"{o} AS {prefix}ortg, {d} AS {prefix}drtg, {o} - {d} AS {prefix}net"
+
+
+def _rates_all() -> str:
+    """Ratings and the four factors of one offense and of its opponents, from the summed count columns."""
+    out = [_ratings()]
+    for s in ("o", "d"):
+        out += [f"CASE WHEN {s}_fga > 0 THEN ({s}_fgm + 0.5 * {s}_fg3m) / {s}_fga END AS {s}_efg",
+                f"CASE WHEN {s}_poss > 0 THEN CAST({s}_tov AS DOUBLE) / {s}_poss END AS {s}_tov_pct",
+                f"CASE WHEN {s}_orb + {s}_drb_end > 0 THEN CAST({s}_orb AS DOUBLE) / ({s}_orb + {s}_drb_end) END AS {s}_orb_pct",
+                f"CASE WHEN {s}_fga > 0 THEN CAST({s}_ftm AS DOUBLE) / {s}_fga END AS {s}_ft_rate"]
+    return ", ".join(out)
 
 
 def _tail(method: str, version: tuple[str, str]) -> str:
@@ -172,24 +246,49 @@ def _player_select(method: str, version: tuple[str, str]) -> str:
 def _lineup_select(method: str, version: tuple[str, str]) -> str:
     return f"""
         WITH l AS (SELECT season_end_year, season_type, team_id, players, count(DISTINCT game_id) AS games, count(*) AS stints,
-                          sum(secs) AS secs, {SUMS}
+                          sum(secs) AS secs, {SUMS_ALL}
                    FROM stint_team GROUP BY season_end_year, season_type, team_id, players)
         SELECT season_end_year, season_type, team_id, array_to_string(players, '-'),
-               players[1], players[2], players[3], players[4], players[5], games, stints, secs, {", ".join(STAT_COLS)},
-               {_ratings()}, {_tail(method, version)}
+               players[1], players[2], players[3], players[4], players[5], games, stints, secs, {", ".join(ALL_COLS)},
+               {_rates_all()}, {_tail(method, version)}
         FROM l"""
 
 
-def _pair_select(method: str, version: tuple[str, str]) -> str:
+def _only(season: tuple[int, str] | None) -> str:
+    """Optional filter on one season: the pair and combo tables are written season by season (a single statement over all
+    stints expands 23 million rows of 22 columns and ran out of memory)."""
+    return "" if season is None else f"WHERE season_end_year = {int(season[0])} AND season_type = '{season[1]}'"
+
+
+def _pair_select(method: str, version: tuple[str, str], season: tuple[int, str] | None = None) -> str:
     return f"""
-        WITH x AS (SELECT season_end_year, season_type, team_id, game_id, secs, {", ".join(STAT_COLS)}, unnest({PAIRS}) AS pr
-                   FROM stint_team),
+        WITH x AS (SELECT season_end_year, season_type, team_id, game_id, secs, {", ".join(ALL_COLS)}, unnest({PAIRS}) AS pr
+                   FROM stint_team {_only(season)}),
         a AS (SELECT season_end_year, season_type, team_id, pr[1] AS player_a, pr[2] AS player_b, count(DISTINCT game_id) AS games,
-                     count(*) AS stints, sum(secs) AS secs, {SUMS}
+                     count(*) AS stints, sum(secs) AS secs, {SUMS_ALL}
               FROM x GROUP BY season_end_year, season_type, team_id, pr[1], pr[2])
-        SELECT season_end_year, season_type, team_id, player_a, player_b, games, stints, secs, {", ".join(STAT_COLS)},
-               {_ratings()}, {_tail(method, version)}
+        SELECT season_end_year, season_type, team_id, player_a, player_b, games, stints, secs, {", ".join(ALL_COLS)},
+               {_rates_all()}, {_tail(method, version)}
         FROM a"""
+
+
+def _combo_select(method: str, version: tuple[str, str], season: tuple[int, str] | None = None) -> str:
+    """Three- and four-man combinations of every stint-team row (10 and 5 per row)."""
+    def part(size: int, expr: str) -> str:
+        p4 = "cb[4]" if size == 4 else "CAST(NULL AS INTEGER)"
+        return f"""
+        SELECT season_end_year, season_type, team_id, {size} AS size, array_to_string(cb, '-') AS combo_key, cb[1] AS p1, cb[2] AS p2,
+               cb[3] AS p3, {p4} AS p4, games, stints, secs, {", ".join(ALL_COLS)}, {_rates_all()}, {_tail(method, version)}
+        FROM (SELECT season_end_year, season_type, team_id, cb, count(DISTINCT game_id) AS games, count(*) AS stints, sum(secs) AS secs, {SUMS_ALL}
+              FROM (SELECT season_end_year, season_type, team_id, game_id, secs, {", ".join(ALL_COLS)}, unnest({expr}) AS cb FROM stint_team {_only(season)})
+              GROUP BY season_end_year, season_type, team_id, cb)"""
+    return part(3, TRIOS) + " UNION ALL " + part(4, QUARTETS)
+
+
+def _noise_select(version: tuple[str, str]) -> str:
+    return f"""
+        SELECT g.season_end_year, g.season_type, count(*), avg(p.points), stddev_samp(p.points), '{version[0]}', '{version[1]}'
+        FROM core.possessions p JOIN core.games g USING (game_id) GROUP BY g.season_end_year, g.season_type"""
 
 
 def _one(con, sql: str):
@@ -210,6 +309,7 @@ def _prepare(con, method: str) -> None:
     for t in TEMP_TABLES:
         con.execute(f"DROP TABLE IF EXISTS {t}")
     con.execute(POSS_END)
+    con.execute(ORB_EVENTS)
     con.execute(CREDIT_POINTS.format(ft_stint=FT_STINT[method]))
     con.execute(CREDITS)
     con.execute(STINT_TEAM)
@@ -220,7 +320,7 @@ def _drop_temp(con) -> None:
         con.execute(f"DROP TABLE IF EXISTS {t}")
 
 
-def _hard_checks(con) -> None:
+def _hard_checks(con, suffix: str = "") -> None:
     n_poss = _one(con, "SELECT count(*) FROM core.possessions")
     if _one(con, "SELECT count(*) FROM poss_end WHERE end_stint_id IS NULL"):
         raise OnOffMartError("a possession has no stint segment")
@@ -235,43 +335,85 @@ def _hard_checks(con) -> None:
         raise OnOffMartError(f"points not conserved: possessions {pts_poss}, credited {pts_credit}")
     if _one(con, "SELECT sum(o_poss) FROM stint_team") != n_poss or _one(con, "SELECT sum(d_poss) FROM stint_team") != n_poss:
         raise OnOffMartError("possessions credited to stints differ from core.possessions")
-    for table, factor, cols in (("marts.player_onoff_season", 5, ("on_o_poss", "on_d_poss", "on_o_pts", "on_secs")),
-                                ("marts.pair_stats", 10, ("o_poss", "d_poss", "o_pts", "secs"))):
+    plain = ("o_poss", "d_poss", "o_pts", "secs")
+    for table, where, factor, cols in ((f"marts.player_onoff_season{suffix}", "TRUE", 5, ("on_o_poss", "on_d_poss", "on_o_pts", "on_secs")),
+                                       (f"marts.pair_stats{suffix}", "TRUE", 10, plain), (f"marts.combo_stats{suffix}", "size = 3", 10, plain),
+                                       (f"marts.combo_stats{suffix}", "size = 4", 5, plain)):
         off = con.execute(f"""
             WITH p AS (SELECT season_end_year, season_type, team_id, sum({cols[0]}) AS po, sum({cols[1]}) AS pd, sum({cols[2]}) AS pp,
-                              sum({cols[3]}) AS ps FROM {table} GROUP BY ALL),
+                              sum({cols[3]}) AS ps FROM {table} WHERE {where} GROUP BY ALL),
                  l AS (SELECT season_end_year, season_type, team_id, sum(o_poss) AS lo, sum(d_poss) AS ld, sum(o_pts) AS lp, sum(secs) AS ls
-                       FROM marts.lineup_stats GROUP BY ALL)
+                       FROM marts.lineup_stats{suffix} GROUP BY ALL)
             SELECT count(*) FROM l LEFT JOIN p USING (season_end_year, season_type, team_id)
             WHERE p.po IS DISTINCT FROM {factor} * l.lo OR p.pd IS DISTINCT FROM {factor} * l.ld
                OR p.pp IS DISTINCT FROM {factor} * l.lp OR abs(p.ps - {factor} * l.ls) > 1e-6 OR p.ps IS NULL""").fetchone()[0]
         if off:
-            raise OnOffMartError(f"{off} team-seasons: {table} possessions, points or seconds are not {factor} times the lineups'")
+            raise OnOffMartError(f"{off} team-seasons: {table} ({where}) possessions, points or seconds are not {factor} times the lineups'")
+    bad = _one(con, "SELECT count(*) FROM orb_events WHERE team_id IS DISTINCT FROM offense_team_id")
+    if bad:
+        raise OnOffMartError(f"{bad} offensive rebounds are not by the possession's offense team")
+    sums = ", ".join(f"coalesce(sum({s}_{c}), 0) AS {s}_{c}" for s in ("o", "d") for c in FACTOR_COLS)
+    mismatch = con.execute(f"""
+        WITH g AS (SELECT game_id, season_end_year AS y, season_type AS t FROM core.games),
+             sh AS (SELECT g.y, g.t, count(*) AS fga, count(*) FILTER (event_type = 'shot_made') AS fgm,
+                           count(*) FILTER (event_type = 'shot_made' AND points = 3) AS fg3m
+                    FROM core.events e JOIN g USING (game_id) WHERE event_type IN ('shot_made', 'shot_missed') AND team_id IS NOT NULL GROUP BY 1, 2),
+             ft AS (SELECT g.y, g.t, count(*) AS ftm FROM credit_points c JOIN g USING (game_id) WHERE c.is_ft GROUP BY 1, 2),
+             po AS (SELECT g.y, g.t, count(*) FILTER (end_type = 'turnover') AS tov, count(*) FILTER (end_type = 'defensive_rebound') AS drb_end
+                    FROM poss_end p JOIN g USING (game_id) GROUP BY 1, 2),
+             ob AS (SELECT g.y, g.t, count(*) AS orb FROM orb_events o JOIN g USING (game_id) GROUP BY 1, 2),
+             l AS (SELECT season_end_year AS y, season_type AS t, {sums} FROM marts.lineup_stats{suffix} GROUP BY 1, 2)
+        SELECT count(*) FROM l LEFT JOIN sh USING (y, t) LEFT JOIN ft USING (y, t) LEFT JOIN po USING (y, t) LEFT JOIN ob USING (y, t)
+        WHERE l.o_fga <> coalesce(sh.fga, 0) OR l.o_fgm <> coalesce(sh.fgm, 0) OR l.o_fg3m <> coalesce(sh.fg3m, 0) OR l.o_ftm <> coalesce(ft.ftm, 0)
+           OR l.o_tov <> coalesce(po.tov, 0) OR l.o_drb_end <> coalesce(po.drb_end, 0) OR l.o_orb <> coalesce(ob.orb, 0)
+           OR {" OR ".join(f"l.d_{c} <> l.o_{c}" for c in FACTOR_COLS)}""").fetchone()[0]
+    if mismatch:
+        raise OnOffMartError(f"{mismatch} seasons: the lineups' four-factor counts differ from the shot events / possessions / rebounds (or offense and defense totals differ)")
 
 
 def build(con) -> dict:
-    """Rebuild marts.player_onoff_season, marts.lineup_stats and marts.pair_stats in one transaction."""
+    """Rebuild the on/off, lineup, pair, combo and noise marts.
+
+    The new tables are written next to the old ones (`*_new`, season by season: one big transaction held every new row in memory
+    and ran out of it), checked, and only then swapped in by one small transaction; if a check fails the new tables are dropped and
+    the old marts stay as they were.
+    """
     version = _version(con)
     con.execute("CREATE SCHEMA IF NOT EXISTS marts")
-    con.execute("BEGIN")
+    names = ("player_onoff_season", "lineup_stats", "pair_stats", "combo_stats", "possession_noise")
     try:
         _prepare(con, CREDIT_METHOD)
-        for name, ddl, select in (("marts.player_onoff_season", DDL_PLAYER, _player_select),
-                                  ("marts.lineup_stats", DDL_LINEUP, _lineup_select),
-                                  ("marts.pair_stats", DDL_PAIR, _pair_select)):
-            con.execute(f"DROP TABLE IF EXISTS {name}")
-            con.execute(f"CREATE TABLE {name} {ddl}")
-            con.execute(f"INSERT INTO {name} {select(CREDIT_METHOD, version)}")
-        _hard_checks(con)
-        out = {"player_rows": _one(con, "SELECT count(*) FROM marts.player_onoff_season"),
-               "lineup_rows": _one(con, "SELECT count(*) FROM marts.lineup_stats"),
-               "pair_rows": _one(con, "SELECT count(*) FROM marts.pair_stats"),
+        seasons = con.execute("SELECT DISTINCT season_end_year, season_type FROM stint_team ORDER BY 1, 2").fetchall()
+        for name, ddl, select, by_season in (("player_onoff_season", DDL_PLAYER, _player_select, False),
+                                             ("lineup_stats", DDL_LINEUP, _lineup_select, False),
+                                             ("pair_stats", DDL_PAIR, _pair_select, True), ("combo_stats", DDL_COMBO, _combo_select, True)):
+            con.execute(f"DROP TABLE IF EXISTS marts.{name}_new")
+            con.execute(f"CREATE TABLE marts.{name}_new {ddl}")
+            for season in (seasons if by_season else [None]):
+                con.execute(f"INSERT INTO marts.{name}_new {select(CREDIT_METHOD, version, season) if by_season else select(CREDIT_METHOD, version)}")
+        con.execute("DROP TABLE IF EXISTS marts.possession_noise_new")
+        con.execute(f"CREATE TABLE marts.possession_noise_new {DDL_NOISE}")
+        con.execute(f"INSERT INTO marts.possession_noise_new {_noise_select(version)}")
+        _hard_checks(con, "_new")
+        out = {"player_rows": _one(con, "SELECT count(*) FROM marts.player_onoff_season_new"),
+               "lineup_rows": _one(con, "SELECT count(*) FROM marts.lineup_stats_new"),
+               "pair_rows": _one(con, "SELECT count(*) FROM marts.pair_stats_new"),
+               "combo_rows": _one(con, "SELECT count(*) FROM marts.combo_stats_new"),
                "ft_without_foul": _one(con, "SELECT count(*) FROM credit_points WHERE ft_without_foul"),
                "rules_version": version[0], "rules_profile": version[1]}
-        _drop_temp(con)
+        con.execute("BEGIN")
+        for name in names:
+            con.execute(f"DROP TABLE IF EXISTS marts.{name}")
+            con.execute(f"ALTER TABLE marts.{name}_new RENAME TO {name}")
         con.execute("COMMIT")
+        _drop_temp(con)
     except Exception:
-        con.execute("ROLLBACK")
+        try:
+            con.execute("ROLLBACK")
+        except Exception:
+            pass
+        for name in names:
+            con.execute(f"DROP TABLE IF EXISTS marts.{name}_new")
         raise
     return out
 
@@ -292,9 +434,10 @@ def write_report(con, path: Path) -> None:
         WITH p AS (SELECT season_end_year, season_type, count(*) AS players, count(DISTINCT team_id) AS teams,
                           sum(on_o_poss) / 5 AS poss, sum(on_o_pts) / 5 AS pts FROM marts.player_onoff_season GROUP BY ALL),
              l AS (SELECT season_end_year, season_type, count(*) AS lineups FROM marts.lineup_stats GROUP BY ALL),
-             q AS (SELECT season_end_year, season_type, count(*) AS pairs FROM marts.pair_stats GROUP BY ALL)
-        SELECT season_end_year, season_type, teams, players, lineups, pairs, poss, pts, 100.0 * pts / poss
-        FROM p JOIN l USING (season_end_year, season_type) JOIN q USING (season_end_year, season_type)
+             q AS (SELECT season_end_year, season_type, count(*) AS pairs FROM marts.pair_stats GROUP BY ALL),
+             c AS (SELECT season_end_year, season_type, count(*) AS combos FROM marts.combo_stats GROUP BY ALL)
+        SELECT season_end_year, season_type, teams, players, lineups, pairs, combos, poss, pts, 100.0 * pts / poss
+        FROM p JOIN l USING (season_end_year, season_type) JOIN q USING (season_end_year, season_type) JOIN c USING (season_end_year, season_type)
         ORDER BY season_type DESC, season_end_year""").fetchall()
     ft = con.execute("""SELECT count(*) FROM core.events WHERE event_type = 'free_throw' AND points > 0 AND foul_event_seq IS NULL
                         AND NOT coalesce(is_technical_ft, FALSE) AND NOT coalesce(is_between_possessions_ft, FALSE)
@@ -304,11 +447,13 @@ def write_report(con, path: Path) -> None:
              f"Credit method `{meta[0]}`, rules version `{meta[1]}`, profile `{meta[2]}` (see `marts/onoff.py`). Numbers only.", "",
              "The build is rolled back unless all of these hold: every possession has an end stint; its offense team is the home or the away",
              "team; credited points = possession points; stint possessions = core.possessions; per team-season the players' possessions, points and",
-             "seconds are exactly 5 times the lineups', and the pairs' exactly 10 times. They held for every season below.", "",
-             "| season | type | teams | player rows | lineups | pairs | possessions (all teams) | points | points per 100 possessions |",
-             "|---|---|---|---|---|---|---|---|---|"]
-    lines += [f"| {season_label(y)} | {t} | {n} | {pl:,} | {li:,} | {pa:,} | {int(po):,} | {int(pt):,} | {r:.1f} |"
-              for y, t, n, pl, li, pa, po, pt, r in rows]
+             "seconds are exactly 5 times the lineups', the pairs' and three-man combinations' exactly 10 times, the four-man combinations' 5 times; "
+             "and per season the lineups' shots, made free throws, turnovers, offensive and defensive rebounds equal the counts from the events and "
+             "possessions (offense totals = defense totals). They held for every season below.", "",
+             "| season | type | teams | player rows | lineups | pairs | 3-4 man combos | possessions (all teams) | points | points per 100 possessions |",
+             "|---|---|---|---|---|---|---|---|---|---|"]
+    lines += [f"| {season_label(y)} | {t} | {n} | {pl:,} | {li:,} | {pa:,} | {cb:,} | {int(po):,} | {int(pt):,} | {r:.1f} |"
+              for y, t, n, pl, li, pa, cb, po, pt, r in rows]
     lines += ["", f"Free throws that count but have no linked foul (credited to the stint of the free throw itself): **{ft}**.", ""]
     path.write_text(chr(10).join(lines), encoding="utf-8")
 

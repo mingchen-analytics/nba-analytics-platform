@@ -1172,3 +1172,17 @@ log entries that say "check 111" for the possession points check mean 112 now.
 - **Operational**: the reload of 2017-18 ran into a MemoryError in the lineup parser (every lineup entry parsed separately: millions of strings). `parse_player_keys` now parses each distinct string once and maps it back (identical
   result on real data); `NBA_PLATFORM_MEMORY_LIMIT` caps DuckDB memory. A further failure came from low disk space (C: had 1.4 GB free), so the staging checks of the 2017-18 reload were not stored again; the season's events, stints
   and possessions are the corrected ones.
+
+## 2026-10-25 — Lineups: four factors, three- and four-man groups, noise hint (plan approved by the owner)
+
+New tables `marts.combo_stats` (3- and 4-man groups) and `marts.possession_noise`; `marts.lineup_stats` and `marts.pair_stats` gain the four factors. Page `9_Lineups.py`: team, league leaderboard and by-player views for 2- to 5-man groups.
+- **Attribution of the factor counts** (same stints as the on/off crediting, the hybrid): shots (FGA, FGM, 3PM) to the stint of the shot event; made free throws to the stint at the foul; possessions ended by a turnover or a
+  defensive rebound to the stint on the floor when the possession ends; offensive rebounds to the stint of the rebound. An offensive rebound is a rebound followed by a higher chance id: 1,094,018 events against 1,094,077 in
+  `num_chances - 1` (59 differ, 0.005 %); every such rebound is by the offense team (hard check).
+- **Checks (hard, in the build)**: trios 10x and quartets 5x the lineups' possessions, points and seconds; per season the lineups' FGA, FGM, 3PM, made free throws, turnovers, offensive and defensive rebounds equal the counts
+  from the events and possessions, and the offense totals equal the defense totals. All pass for all 60 season files.
+- **All possessions count in the four factors** (heaves and garbage time included), while ORTG / DRTG / NET can leave out heaves (a page switch): TOV% would otherwise not match the team table.
+- **Noise hint**: NET half-width = 1.96 x 100 x sd x sqrt(1 / O POSS + 1 / D POSS), with the season's standard deviation of points per possession (about 1.10 in 2004-05, 1.20 in 2024-25). It treats possessions as independent and
+  ignores that the group was chosen after the fact (the best lineups of a league are selected for luck): a hint, not a significance test. The page says so.
+- **Build**: the pair and combo tables are written season by season, and all new tables are written as `*_new`, checked and then swapped in by one small transaction; one big transaction held every new row in memory and
+  ran out of it on this machine (1.29 million combos).

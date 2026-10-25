@@ -280,7 +280,7 @@ Tracking misses some games, so `gp` can be lower than the box score (`docs/valid
 `count` columns can be shown per game (divided by `gp`, or `hustle_gp` for hustle) or per 36 minutes;
 `rate` columns (percentages, averages, per-touch values) are never scaled.
 
-## marts.player_onoff_season, marts.lineup_stats, marts.pair_stats
+## marts.player_onoff_season, marts.lineup_stats, marts.pair_stats, marts.combo_stats, marts.possession_noise
 
 On/off and lineup results counted from our own stints and possessions (`marts/onoff.py`; no NBA.com numbers).
 New tables approved by the owner on 2026-10-22 (CLAUDE.md working agreement 8).
@@ -294,15 +294,24 @@ linked foul goes to its own stint (56 in all seasons, listed in the report). Tec
 throws between possessions are counted nowhere. Heave and garbage possessions are counted, not excluded; their
 counts are columns so a page can exclude them.
 
+**Four factors (lineup, pair and combo tables; added 2026-10-25):** counts per side, `o_` = the group's offense, `d_` = its opponents
+while the group defends: `fga`, `fgm`, `fg3m` (shots go to the stint of the shot event), `ftm` (made free throws inside possessions, to the stint at the foul),
+`tov` and `drb_end` (possessions ended by a turnover / by a defensive rebound, to the stint on the floor when the possession ends),
+`orb` (offensive rebounds: a rebound followed by a higher chance id, to the stint of the rebound; 1,094,018 against 1,094,077 in `num_chances - 1`).
+Rates from them: `o_efg` = (FGM + 0.5 x 3PM) / FGA, `o_tov_pct` = turnovers / possessions, `o_orb_pct` = own offensive rebounds / (own + possessions ended by the
+opponent's defensive rebound), `o_ft_rate` = made free throws / FGA, and the same four with `d_`. All possessions count (heaves and garbage time included).
+
 | table | key | columns |
 |---|---|---|
 | `marts.player_onoff_season` | `(season_end_year, season_type, team_id, player_id)` **PRIMARY KEY**; a traded player has one row per team | `games`, `on_secs`, `off_secs`; for `on_` and `off_` each: `o_poss`, `o_pts`, `o_heave_poss`, `o_garbage_poss` (offense) and `d_poss`, `d_pts`, `d_heave_poss`, `d_garbage_poss` (defense); `on_ortg`, `on_drtg`, `on_net`, `off_ortg`, `off_drtg`, `off_net` (per 100 possessions; NULL when there is no possession), `net_on_minus_off` |
 | `marts.lineup_stats` | `(season_end_year, season_type, team_id, lineup_key)` **PRIMARY KEY**; `lineup_key` = the five player IDs sorted and joined with `-` | `p1..p5` (sorted), `games`, `stints`, `secs`, `o_poss`, `o_pts`, `o_heave_poss`, `o_garbage_poss`, `d_poss`, `d_pts`, `d_heave_poss`, `d_garbage_poss`, `ortg`, `drtg`, `net` |
 | `marts.pair_stats` | `(season_end_year, season_type, team_id, player_a, player_b)` **PRIMARY KEY**, `player_a < player_b` | two teammates on the floor together (each stint gives 10 pairs per team): `games`, `stints`, `secs`, the same eight counts as `lineup_stats`, `ortg`, `drtg`, `net` |
+| `marts.combo_stats` | `(season_end_year, season_type, team_id, size, combo_key)` **PRIMARY KEY**; `size` 3 or 4, `combo_key` = the sorted player IDs joined with `-` | three- and four-man groups (each stint gives 10 trios and 5 quartets per team): `p1..p4` (`p4` NULL for trios), `games`, `stints`, `secs`, the eight counts, the four-factor counts, `ortg`, `drtg`, `net` and the eight factor rates; 1,290,339 rows (504,563 trios, 785,776 quartets) |
+| `marts.possession_noise` | `(season_end_year, season_type)` **PRIMARY KEY** | `possessions`, `mean_pts`, `sd_pts` (standard deviation of points per possession, all possessions of the season); pages use it for the approximate half-width of NET: 1.96 x 100 x `sd_pts` x sqrt(1 / O POSS + 1 / D POSS). A statistical approximation that treats possessions as independent, not a model |
 
 `off_` = the team's total minus `on_` (same team and season). The build is rolled back unless every possession has an end
 stint, credited points equal possession points, and per team-season the players' possessions, points and seconds are exactly
-5 times the lineups' and the pairs' exactly 10 times (`docs/validation/onoff_checks.md`). Snapshot build (all 60 season files): 22,571 player rows, 420,946 lineups, 151,672 pairs.
+5 times the lineups', the pairs' and trios' exactly 10 times, the quartets' 5 times, and per season the lineups' shots, made free throws, turnovers and rebounds equal the counts from the events and possessions (`docs/validation/onoff_checks.md`). The new tables are written next to the old ones and swapped in only after the checks pass. All 60 season files: 22,571 player rows, 420,946 lineups, 151,672 pairs, 1,290,339 combos.
 `python -m nba_platform.marts.onoff --compare` also writes `docs/validation/onoff_credit_methods.md`: on/off under option A (`end_lineup`) against the hybrid.
 
 ## marts.team_efficiency_season

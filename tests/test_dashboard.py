@@ -148,7 +148,8 @@ def _layer2_built() -> bool:
     con = duckdb.connect(str(DB_PATH), read_only=True)
     try:
         return con.execute("""SELECT count(*) FROM information_schema.tables WHERE table_schema = 'marts'
-                              AND table_name IN ('team_efficiency_season', 'player_onoff_season', 'lineup_stats', 'pair_stats')""").fetchone()[0] == 4
+                              AND table_name IN ('team_efficiency_season', 'player_onoff_season', 'lineup_stats', 'pair_stats',
+                                                                  'combo_stats', 'possession_noise')""").fetchone()[0] == 6
     finally:
         con.close()
 
@@ -182,16 +183,24 @@ def test_on_off_page_renders_board_and_history():
     assert not at.exception, at.exception
 
 
-def test_lineups_page_renders_both_tabs():
+def test_lineups_page_renders_team_league_and_player_views_for_every_group_size():
     from streamlit.testing.v1 import AppTest
 
     if not _layer2_built():
         pytest.skip("layer 2 marts not built")
-    at = AppTest.from_file(str(LAYER2_PAGES["9_Lineups.py"]), default_timeout=120).run()
+    at = AppTest.from_file(str(LAYER2_PAGES["9_Lineups.py"]), default_timeout=180).run()
     assert not at.exception, at.exception
-    assert at.title[0].value == "Lineups" and len(at.dataframe) == 2
-    assert len(at.dataframe[0].value) >= 1 and len(at.dataframe[1].value) >= 10
-    at.radio[0].set_value("playoffs").run()
+    assert at.title[0].value == "Lineups" and len(at.tabs) == 3 and len(at.dataframe) == 3   # team, league, player
+    league = at.dataframe[1].value
+    assert len(league) >= 10 and {"o_efg", "d_efg", "net_margin", "signal"} <= set(league.columns)
+    assert set(league["signal"]) <= {"clear", "within noise"}
+    for size_key in ("team_size", "league_size", "player_size"):
+        for size in (2, 3, 4, 5):
+            at.radio(key=size_key).set_value(size).run()
+            assert not at.exception, (size_key, size, at.exception)
+    at.toggle[0].set_value(False).run()
+    assert not at.exception, at.exception
+    at.radio(key="league_type").set_value("playoffs").run()
     assert not at.exception, at.exception
 
 

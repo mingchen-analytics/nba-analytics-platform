@@ -165,3 +165,84 @@ def test_compare_report(con, tmp_path):
     assert out["moved_points"] == 2 and out["players_compared"] == 11
     text = (tmp_path / "r.md").read_text(encoding="utf-8")
     assert "end_lineup" in text and "| 2024-25 | regular |" in text
+
+
+def test_three_and_four_man_combinations_cover_every_group_and_conserve(con):
+    out = onoff.build(con)
+    # home: stint 1 gives C(5,3) = 10 trios, stint 2 another 10, 4 of them shared; away: 10 trios in both stints; quartets: 5 + 5 - 1 and 5
+    assert out["combo_rows"] == (16 + 10) + (9 + 5)
+    assert con.execute("SELECT count(*) FROM marts.combo_stats WHERE size = 3 AND team_id = 1").fetchone()[0] == 16
+    assert con.execute("SELECT count(*) FROM marts.combo_stats WHERE size = 4 AND team_id = 1").fetchone()[0] == 9
+    row = con.execute("SELECT stints, secs, o_poss, o_pts, d_poss, d_pts, p4 FROM marts.combo_stats WHERE size = 3 AND combo_key = '11-12-13'").fetchone()
+    assert row == (2, 200.0, 2, 4, 2, 3, None)                                   # same as the pair (11, 12): on for both stints
+    row = con.execute("SELECT stints, secs, o_poss, o_pts, p4 FROM marts.combo_stats WHERE size = 4 AND combo_key = '11-12-13-15'").fetchone()
+    assert row == (1, 100.0, 1, 4, 15)                                           # only stint 1
+
+
+def test_possession_noise_is_the_per_possession_standard_deviation(con):
+    import statistics
+
+    onoff.build(con)
+    n, mean, sd = con.execute("SELECT possessions, mean_pts, sd_pts FROM marts.possession_noise WHERE season_end_year = 2025 AND season_type = 'regular'").fetchone()
+    assert n == 4 and mean == 1.75 and sd == pytest.approx(statistics.stdev([2, 3, 2, 0]))
+
+
+def _factor_game(c, game="F1"):
+    """One stint (home 11-15, away 21-25) with five possessions that exercise every four-factor count."""
+    c.execute("INSERT INTO core.games VALUES (?, '2024-25', 2025, 'regular', NULL, 1, 2, 0, 0, 4, 't', FALSE, NULL)", [game])
+    c.execute("INSERT INTO core.stints VALUES (?, 1, 1, 0, 100, 1, 20, 'period_start', 5, 11, 12, 13, 14, 15, 21, 22, 23, 24, 25, 'v1')", [game])
+    for pid, off, de, pts, end in ((1, 1, 2, 3, "made_fg"), (2, 2, 1, 0, "defensive_rebound"), (3, 1, 2, 0, "turnover"), (4, 1, 2, 1, "made_ft")):
+        c.execute("INSERT INTO core.possessions (game_id, possession_id, offense_team_id, defense_team_id, period, start_secs, end_secs, "
+                  "start_event_seq, end_event_seq, start_type, end_type, points, num_chances, secs_remaining_period_at_start, "
+                  "secs_remaining_game_at_start, is_end_of_period_heave, is_garbage_time, is_after_timeout, rules_version, rules_profile) "
+                  "VALUES (?, ?, ?, ?, 1, 0, 0, 1, 1, 's', ?, ?, 1, 0, 0, FALSE, FALSE, FALSE, 'v1', 'pbpstats_compat')", [game, pid, off, de, end, pts])
+        c.execute("INSERT INTO core.possession_stint_segments VALUES (?, ?, 1, 1, 1, 1, 0, 0)", [game, pid])
+    ev = ("INSERT INTO core.events (game_id, event_seq, period, secs_elapsed_game, team_id, event_type, points, stint_id, possession_id, chance_id, "
+          "foul_event_seq, is_technical_ft, source) VALUES ")
+    rows = [  # seq, team, type, points, possession, chance
+        (1, 1, "shot_missed", 0, 1, 1), (2, 1, "rebound", 0, 1, 1), (3, 1, "shot_made", 3, 1, 2),      # p1: miss, offensive rebound, a made three
+        (4, 2, "shot_missed", 0, 2, 1), (5, 1, "rebound", 0, 2, 1),                                    # p2 (team 2): miss, defensive rebound by team 1
+        (6, 1, "turnover", 0, 3, 1),                                                                  # p3: turnover
+        (7, 1, "free_throw", 1, 4, 1)]                                                                # p4: one made free throw
+    c.execute(ev + ", ".join(f"('{game}', {s}, 1, {s}, {t}, '{k}', {pts}, 1, {p}, {ch}, NULL, FALSE, 't')" for s, t, k, pts, p, ch in rows))
+
+
+@pytest.fixture
+def fcon():
+    c = db.connect(":memory:")
+    _factor_game(c)
+    yield c
+    c.close()
+
+
+def test_four_factor_counts_are_credited_to_the_right_side(fcon):
+    onoff.build(fcon)
+    cols = "o_fga, o_fgm, o_fg3m, o_ftm, o_tov, o_orb, o_drb_end, d_fga, d_fgm, d_ftm, d_tov, d_orb, d_drb_end"
+    home = fcon.execute(f"SELECT {cols} FROM marts.lineup_stats WHERE team_id = 1").fetchone()
+    away = fcon.execute(f"SELECT {cols} FROM marts.lineup_stats WHERE team_id = 2").fetchone()
+    # home offense: 2 FGA (a miss, a made three), 1 made free throw, 1 turnover, 1 offensive rebound, 0 possessions ended by an opponent rebound
+    # home defense (= away offense): 1 FGA, a miss, no free throws, no turnover, the away possession ended by a defensive rebound
+    assert home == (2, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1)
+    assert away == (1, 0, 0, 0, 0, 0, 1, 2, 1, 1, 1, 1, 0)
+
+
+def test_four_factor_rates(fcon):
+    onoff.build(fcon)
+    r = fcon.execute("SELECT o_efg, o_tov_pct, o_orb_pct, o_ft_rate, d_efg, d_orb_pct, d_tov_pct FROM marts.lineup_stats WHERE team_id = 1").fetchone()
+    assert r[0] == pytest.approx((1 + 0.5 * 1) / 2)          # (FGM + 0.5 x 3PM) / FGA
+    assert r[1] == pytest.approx(1 / 3)                      # 1 turnover in 3 possessions
+    assert r[2] == 1.0                                       # 1 offensive rebound, no possession ended by an opponent's rebound
+    assert r[3] == 0.5                                       # 1 made free throw per 2 FGA
+    assert r[4] == 0.0 and r[5] == 0.0 and r[6] == 0.0       # the opponents: a missed shot, no offensive rebound, no turnover
+
+
+def test_offensive_rebound_by_the_wrong_team_fails(fcon):
+    fcon.execute("UPDATE core.events SET team_id = 2 WHERE event_seq = 2")
+    with pytest.raises(onoff.OnOffMartError, match="not by the possession's offense team"):
+        onoff.build(fcon)
+
+
+def test_a_shot_without_a_stint_fails_the_factor_check(fcon):
+    fcon.execute("UPDATE core.events SET stint_id = 9 WHERE event_seq = 1")          # a stint that does not exist: the shot reaches no lineup
+    with pytest.raises(onoff.OnOffMartError, match="four-factor counts differ"):
+        onoff.build(fcon)

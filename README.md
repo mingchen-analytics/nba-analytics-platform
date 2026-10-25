@@ -20,8 +20,8 @@ tested, and versioned, so each number can be explained and reproduced.
   37,986 games, 17.5 M events, 6.3 M shots. A rebuild from zero reproduced all 11 loaded tables exactly
   (row counts and content hashes; checked before the stint and possession tables were added).
 - **Own stints and possessions for every season**: 1.16 M stints and 7.3 M possessions, each
-  row stamped with the `rules_version` and rule profile that built it; on/off, five-man lineup, two-man pair
-  and team efficiency tables are built on them, with conservation checks (every possession and point credited once).
+  row stamped with the `rules_version` and rule profile that built it; on/off, lineup (2- to 5-man groups with the
+  four factors) and team efficiency tables are built on them, with conservation checks (every possession and point credited once).
 - **Every difference from the reference is investigated, not tuned away.** Possession counts are
   compared with [pbpstats](https://github.com/dblackrun/pbpstats) per team and game; the gaps that
   remain were traced to concrete causes (see below) and documented instead of bending the rules to
@@ -30,7 +30,7 @@ tested, and versioned, so each number can be explained and reproduced.
   pbpstats) and `custom` (my own choices), with the rule "copy first, then deviate, one documented
   change at a time".
 - **Fail loudly**: an unmapped player, team or event type stops the load; data is never silently
-  dropped or "fixed" to make a check pass. 324 automated tests, run by CI on every push.
+  dropped or "fixed" to make a check pass. 331 automated tests, run by CI on every push.
 
 ## Possession results
 
@@ -55,8 +55,8 @@ against the official event numbers; 142 remain), and the corrected sequences mat
 Twelve read-only Streamlit pages (`app/`): data health, reference data, games (official box score and
 score-margin chart), players (leaderboard and game log), teams, shooting (zone frequency and accuracy
 with league percentiles, shot chart), tracking / hustle (season and game by game), and from my own possessions:
-team efficiency (four factors, with end-of-period-heave and garbage-time switches), on/off, lineups (five-man
-and pairs), matchups (who guarded a player in a series, game by game) and RAPM (ridge, with bootstrap standard
+team efficiency (four factors, with end-of-period-heave and garbage-time switches), on/off, lineups (2- to 5-man
+groups, league leaderboard and by player, with the four factors and a noise hint), matchups (who guarded a player in a series, game by game) and RAPM (ridge, with bootstrap standard
 errors; a prototype). Every number is labelled by where it comes from (official NBA.com value, counted from my
 play-by-play, or model).
 
